@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useGoldPrices } from './hooks/useGoldPrices';
 import {
   DEFAULT_GOLD_PRICES,
   DEFAULT_BANNERS,
@@ -17,7 +18,7 @@ function ProtectedRoute({ isAuthenticated, children }) {
 }
 
 export default function App() {
-  const [prices, setPrices] = useLocalStorage('sg_prices', DEFAULT_GOLD_PRICES);
+  const [savedPrices, setSavedPrices] = useLocalStorage('sg_prices', DEFAULT_GOLD_PRICES);
   const [banners, setBanners] = useLocalStorage('sg_banners', DEFAULT_BANNERS);
   const [outlets, setOutlets] = useLocalStorage('sg_outlets', DEFAULT_OUTLETS);
   const [companyInfo] = useLocalStorage('sg_company', COMPANY_INFO);
@@ -25,6 +26,15 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
     () => sessionStorage.getItem('sg_auth') === 'true'
   );
+
+  // Live gold prices — auto-fetches from API, falls back to manual
+  const {
+    prices,
+    liveStatus,
+    refreshLive,
+    useLive,
+    setUseLive,
+  } = useGoldPrices(DEFAULT_GOLD_PRICES, savedPrices, setSavedPrices);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
@@ -48,6 +58,8 @@ export default function App() {
               prices={prices}
               outlets={outlets}
               companyInfo={companyInfo}
+              liveStatus={liveStatus}
+              onRefresh={refreshLive}
             />
           }
         />
@@ -71,12 +83,16 @@ export default function App() {
                 prices={prices}
                 banners={banners}
                 outlets={outlets}
-                onSavePrices={setPrices}
+                onSavePrices={setSavedPrices}
                 onSaveBanners={setBanners}
                 onSaveOutlets={setOutlets}
                 onLogout={handleLogout}
                 adminPassword={adminPassword}
                 onChangePassword={setAdminPassword}
+                liveStatus={liveStatus}
+                refreshLive={refreshLive}
+                useLive={useLive}
+                setUseLive={setUseLive}
               />
             </ProtectedRoute>
           }

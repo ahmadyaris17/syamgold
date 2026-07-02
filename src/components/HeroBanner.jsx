@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Circle } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function HeroBanner({ banners }) {
   const [current, setCurrent] = useState(0);
-  const [isLoaded, setIsLoaded] = useState({});
   const timerRef = useRef(null);
 
   const startTimer = () => {
@@ -44,11 +43,10 @@ export default function HeroBanner({ banners }) {
             src={banners[current].imageUrl}
             alt={banners[current].title}
             className="w-full h-full object-cover"
-            onLoad={() => setIsLoaded((p) => ({ ...p, [current]: true }))}
           />
           {/* Multi-layer overlay */}
-          <div className="absolute inset-0 bg-hero-overlay" />
-          <div className="absolute inset-0 bg-gradient-to-r from-dark-900/80 via-transparent to-dark-900/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/80 dark:from-dark-900/80 via-transparent to-gray-900/40 dark:to-dark-900/40" />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900/60 dark:from-dark-900/60 via-transparent to-transparent" />
         </motion.div>
       </AnimatePresence>
 

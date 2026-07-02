@@ -4,36 +4,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════════
+   THEME — outside @layer so it beats Tailwind utility specificity
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg-body: #ffffff;
+  --text-body: #111827;
+  --bg-scrollbar-track: #e5e7eb;
+  --bg-glass: rgba(255, 255, 255, 0.7);
+  --border-glass: rgba(0, 0, 0, 0.06);
+  --bg-glass-warm: rgba(200, 97, 26, 0.04);
+  --border-glass-warm: rgba(200, 97, 26, 0.12);
+}
+
+html[data-theme="dark"] {
+  --bg-body: #0d0500;
+  --text-body: #ffffff;
+  --bg-scrollbar-track: #1a0a00;
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --border-glass: rgba(255, 255, 255, 0.06);
+  --bg-glass-warm: rgba(200, 97, 26, 0.05);
+  --border-glass-warm: rgba(200, 97, 26, 0.15);
+}
+
+html.dark {
+  --bg-body: #0d0500;
+  --text-body: #ffffff;
+  --bg-scrollbar-track: #1a0a00;
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --border-glass: rgba(255, 255, 255, 0.06);
+  --bg-glass-warm: rgba(200, 97, 26, 0.05);
+  --border-glass-warm: rgba(200, 97, 26, 0.15);
+}
+
+body {
+  background-color: var(--bg-body) !important;
+  color: var(--text-body);
+  font-family: Inter, ui-sans-serif, system-ui;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
-
-  html {
-    scroll-behavior: smooth;
-  }
-
-  body {
-    @apply bg-dark-900 text-white font-sans;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    @apply bg-dark-800;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-primary-600 rounded-full;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-primary-500;
-  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background-color: var(--bg-scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background-color: #C8611A; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background-color: #ff531a; }
 }
 
 @layer components {
@@ -59,17 +79,17 @@
   }
 
   .glass {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-glass);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-glass);
   }
 
   .glass-warm {
-    background: rgba(200, 97, 26, 0.05);
+    background: var(--bg-glass-warm);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(200, 97, 26, 0.15);
+    border: 1px solid var(--border-glass-warm);
   }
 
   .gold-text {
