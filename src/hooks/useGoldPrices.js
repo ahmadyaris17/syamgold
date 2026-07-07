@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchLivePrices } from '../services/goldPriceApi';
+import { fetchLivePrices, clearPriceCache } from '../services/goldPriceApi';
 
 /**
  * Hook that manages gold prices — live API first, Supabase as fallback.
@@ -11,9 +11,10 @@ import { fetchLivePrices } from '../services/goldPriceApi';
  *
  * @param {Array} _defaultPrices - Unused (for future use)
  * @param {Array} savedPrices    - User's saved manual prices from Supabase
+ * @param {{ buyMargin: number, sellMargin: number }} margins - Configurable buy/sell margins
  * @returns {{ prices: Array, liveStatus: object, refreshLive: Function, useLive: boolean, setUseLive: Function }}
  */
-export function useGoldPrices(_defaultPrices, savedPrices) {
+export function useGoldPrices(_defaultPrices, savedPrices, margins = {}) {
   // Start with saved prices or empty — never show hardcoded defaults
   const [prices, setPrices] = useState(savedPrices?.length ? savedPrices : []);
   const [liveStatus, setLiveStatus] = useState({
@@ -21,6 +22,7 @@ export function useGoldPrices(_defaultPrices, savedPrices) {
     source: null, // 'live' | 'cache' | 'stale-cache' | 'error' | null
     timestamp: null,
     error: null,
+    spotIdrPerGram: null, // raw spot price before margin
   });
   const [useLive, setUseLiveState] = useState(() => {
     try {
@@ -32,9 +34,11 @@ export function useGoldPrices(_defaultPrices, savedPrices) {
     }
   });
 
-  // Keep a ref to avoid stale closure issues in the fetch callback
+  // Keep refs to avoid stale closure issues in the fetch callback
   const useLiveRef = useRef(useLive);
   useLiveRef.current = useLive;
+  const marginsRef = useRef(margins);
+  marginsRef.current = margins;
 
   const setUseLive = useCallback(
     (value) => {
@@ -58,7 +62,9 @@ export function useGoldPrices(_defaultPrices, savedPrices) {
   const refreshLive = useCallback(async () => {
     setLiveStatus((s) => ({ ...s, loading: true, error: null }));
     try {
-      const result = await fetchLivePrices();
+      // Always clear cache — ensure fresh prices with latest margins
+      clearPriceCache();
+      const result = await fetchLivePrices(marginsRef.current);
       if (!result) {
         setLiveStatus({
           loading: false,
@@ -95,6 +101,19 @@ export function useGoldPrices(_defaultPrices, savedPrices) {
       refreshLive();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refresh when margins change (admin updated margin settings)
+  const marginsInitialized = useRef(false);
+  useEffect(() => {
+    // Skip first render — already handled by mount effect above
+    if (!marginsInitialized.current) {
+      marginsInitialized.current = true;
+      return;
+    }
+    if (useLiveRef.current) {
+      refreshLive();
+    }
+  }, [margins.buyMargin, margins.sellMargin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     prices,

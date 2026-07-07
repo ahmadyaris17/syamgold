@@ -5,7 +5,7 @@ import {
   LayoutDashboard, TrendingUp, Image, MapPin, LogOut, Plus,
   Trash2, Edit3, Save, Check, ArrowUp, ArrowDown,
   ExternalLink, Eye, Settings, RefreshCw, Wifi, WifiOff, Radio, Key, Shield, Upload,
-  Globe, Store, Phone, Mail, FileText, EyeOff, AlertTriangle
+  Globe, Store, Phone, Mail, FileText, EyeOff, AlertTriangle, Calculator
 } from 'lucide-react';
 import { saveApiKey, getStoredApiKey, testApiKey } from '../services/goldPriceApi';
 import { uploadBannerImage, checkImageSize } from '../utils/imageUpload';
@@ -182,7 +182,7 @@ function ConfirmModal({ onClose, onConfirm, title, message, confirmLabel, confir
 }
 
 // --- Gold Price Management (CRUD — categories are free-text input) ---
-function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUseLive, hidden_karats, onSaveHiddenKarats }) {
+function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUseLive, hidden_karats, onSaveHiddenKarats, companyInfo }) {
   const [data, setData] = useState(() => prices.map((p) => ({ ...p })));
   const [editId, setEditId] = useState(null);
   const [toast, setToast] = useState(null); // { message, type }
@@ -536,7 +536,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
         )}
         <div className="px-6 py-3 border-t border-gray-200 dark:border-white/8 text-gray-400 dark:text-white/25 text-xs text-center">
           {useLive
-            ? 'Harga dikalkulasi otomatis dari spot price emas internasional. Margin beli 3% | Margin jual 3%.'
+            ? `Harga dikalkulasi otomatis dari spot price emas internasional. Margin beli ${companyInfo?.buyMargin ?? 3}% | Margin jual ${companyInfo?.sellMargin ?? 3}%.`
             : 'Mode manual — harga diatur sendiri. Klik Simpan setelah selesai mengedit.'}
         </div>
       </div>
@@ -750,7 +750,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
         )}
         <div className="px-4 py-3 text-gray-400 dark:text-white/25 text-[10px] text-center">
           {useLive
-            ? 'Harga dari spot emas internasional. Margin beli 3% | Margin jual 3%.'
+            ? `Harga dari spot emas internasional. Margin beli ${companyInfo?.buyMargin ?? 3}% | Margin jual ${companyInfo?.sellMargin ?? 3}%.`
             : 'Mode manual — klik Simpan setelah selesai.'}
         </div>
       </div>
@@ -1319,6 +1319,116 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
                 {keySaved && <div className="px-4 py-2 bg-emerald-600/10 border border-emerald-600/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-2"><Check size={13} /> API key tersimpan!</div>}
               </div>
             </div>
+
+            {/* Margin Settings */}
+            <div className="glass border border-gray-200 dark:border-white/8 rounded-2xl p-4 sm:p-6 shadow-sm mt-6">
+              <h3 className="text-gray-900 dark:text-white font-bold mb-2 flex items-center gap-2">
+                <TrendingUp size={18} className="text-gold-400" /> Margin Harga
+              </h3>
+              <p className="text-gray-400 dark:text-white/40 text-xs leading-relaxed text-pretty mb-5">
+                Persentase margin yang ditambahkan ke harga spot emas. Disimpan di pengaturan website.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-4 mb-5">
+                <div>
+                  <label className={labelCls}>Margin Beli (%)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={site.buyMargin ?? 3}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9.]/g, '');
+                        updateSite('buyMargin', v === '' ? '' : v);
+                      }}
+                      className={'w-20 ' + inputCls + ' text-center font-mono'}
+                      placeholder="3"
+                    />
+                    <span className="text-gray-400 dark:text-white/40 text-sm">%</span>
+                  </div>
+                  <p className="text-gray-400 dark:text-white/25 text-[10px] mt-1">Harga kami beli dari pelanggan</p>
+                </div>
+                <div>
+                  <label className={labelCls}>Margin Jual (%)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={site.sellMargin ?? 3}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9.]/g, '');
+                        updateSite('sellMargin', v === '' ? '' : v);
+                      }}
+                      className={'w-20 ' + inputCls + ' text-center font-mono'}
+                      placeholder="3"
+                    />
+                    <span className="text-gray-400 dark:text-white/40 text-sm">%</span>
+                  </div>
+                  <p className="text-gray-400 dark:text-white/25 text-[10px] mt-1">Harga kami jual ke pelanggan</p>
+                </div>
+              </div>
+
+              {/* Kalkulasi preview */}
+              <div className="bg-amber-50/50 dark:bg-amber-500/5 border border-amber-200/50 dark:border-amber-500/15 rounded-xl p-4 space-y-2">
+                <h4 className="text-amber-700 dark:text-amber-400 text-xs font-bold flex items-center gap-1.5">
+                  <Calculator size={13} /> Simulasi Perhitungan (24K)
+                </h4>
+                {(() => {
+                  const buyPct = parseFloat(site.buyMargin) || 3;
+                  const sellPct = parseFloat(site.sellMargin) || 3;
+                  const spotExample = 1700000;
+                  const buyResult = Math.round(spotExample * (1 - buyPct / 100) / 1000) * 1000;
+                  const sellResult = Math.round(spotExample * (1 + sellPct / 100) / 1000) * 1000;
+                  const fmt = (n) => new Intl.NumberFormat('id-ID').format(n);
+                  return (
+                    <div className="grid sm:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
+                        <div className="text-gray-400 dark:text-white/40 mb-1">Harga Beli</div>
+                        <div className="text-gray-500 dark:text-white/50 font-mono">
+                          Rp {fmt(spotExample)} × (1 - {buyPct}%)
+                        </div>
+                        <div className="text-gray-500 dark:text-white/50 font-mono">
+                          = Rp {fmt(spotExample)} × {((100 - buyPct) / 100).toFixed(3)}
+                        </div>
+                        <div className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm mt-1">
+                          ≈ Rp {fmt(buyResult)}/g
+                        </div>
+                      </div>
+                      <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
+                        <div className="text-gray-400 dark:text-white/40 mb-1">Harga Jual</div>
+                        <div className="text-gray-500 dark:text-white/50 font-mono">
+                          Rp {fmt(spotExample)} × (1 + {sellPct}%)
+                        </div>
+                        <div className="text-gray-500 dark:text-white/50 font-mono">
+                          = Rp {fmt(spotExample)} × {((100 + sellPct) / 100).toFixed(3)}
+                        </div>
+                        <div className="text-primary-600 dark:text-primary-400 font-bold font-mono text-sm mt-1">
+                          ≈ Rp {fmt(sellResult)}/g
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <p className="text-gray-400 dark:text-white/30 text-[10px]">
+                <div className="flex items-center gap-3 mt-5">
+                <button onClick={handleSaveSite} className="btn-primary text-sm py-2 px-5">
+                  <Save size={16} /> Simpan Margin
+                </button>
+                <AnimatePresence>
+                  {siteSaved && (
+                    <motion.span
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1"
+                    >
+                      <Check size={13} /> Tersimpan!
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+                </p>
+              </div>
+            </div>
           </section>
         </div>
       </div>
@@ -1457,7 +1567,7 @@ export default function Admin({ prices, banners, outlets, companyInfo, hidden_ka
               transition={{ duration: 0.25 }}
             >
               {activeTab === 'dashboard' && <Dashboard prices={prices} banners={banners} outlets={outlets} liveStatus={liveStatus} refreshLive={refreshLive} useLive={useLive} setUseLive={setUseLive} />}
-              {activeTab === 'prices' && <PriceManager prices={prices} onSave={handleSave(onSavePrices)} liveStatus={liveStatus} refreshLive={refreshLive} useLive={useLive} setUseLive={setUseLive} hidden_karats={hidden_karats} onSaveHiddenKarats={onSaveHiddenKarats} />}
+              {activeTab === 'prices' && <PriceManager prices={prices} onSave={handleSave(onSavePrices)} liveStatus={liveStatus} refreshLive={refreshLive} useLive={useLive} setUseLive={setUseLive} hidden_karats={hidden_karats} onSaveHiddenKarats={onSaveHiddenKarats} companyInfo={companyInfo} />}
               {activeTab === 'banners' && <BannerManager banners={banners} onSave={handleSave(onSaveBanners)} />}
               {activeTab === 'outlets' && <OutletManager outlets={outlets} onSave={handleSave(onSaveOutlets)} />}
               {activeTab === 'settings' && (

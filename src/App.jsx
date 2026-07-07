@@ -64,13 +64,19 @@ export default function App() {
   }, []);
 
   // Live gold prices — auto-fetches from API, falls back to manual
+  // Margins from Supabase company settings (or defaults)
+  const margins = useMemo(() => ({
+    buyMargin: (companyInfo?.buyMargin ?? 3) / 100,
+    sellMargin: (companyInfo?.sellMargin ?? 3) / 100,
+  }), [companyInfo?.buyMargin, companyInfo?.sellMargin]);
+
   const {
     prices,
     liveStatus,
     refreshLive,
     useLive,
     setUseLive,
-  } = useGoldPrices(FALLBACK_SETTINGS.prices, savedPrices);
+  } = useGoldPrices(FALLBACK_SETTINGS.prices, savedPrices, margins);
 
   // Filter out hidden karats (admin can hide rows even in Auto mode)
   const hiddenSet = useMemo(() => new Set(hidden_karats || []), [hidden_karats]);
