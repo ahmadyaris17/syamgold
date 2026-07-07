@@ -10,6 +10,7 @@ function sanitizeSection(section, value) {
 
 export function useSettings(fallbackSettings) {
   const [settings, setSettings] = useState(fallbackSettings);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -24,7 +25,10 @@ export function useSettings(fallbackSettings) {
           company: sanitizeCompanyInfo(storedSettings.company || fallbackSettings.company),
         });
       })
-      .catch((error) => console.error('Settings fallback used:', error));
+      .catch((error) => console.error('Settings fallback used:', error))
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
 
     return () => {
       active = false;
@@ -38,5 +42,5 @@ export function useSettings(fallbackSettings) {
     return savedValue;
   }, []);
 
-  return { settings, saveSection };
+  return { settings, saveSection, isLoading };
 }

@@ -21,7 +21,7 @@ function ProtectedRoute({ isAuthenticated, isLoading, children }) {
 }
 
 export default function App() {
-  const { settings, saveSection } = useSettings(FALLBACK_SETTINGS);
+  const { settings, saveSection, isLoading: settingsLoading } = useSettings(FALLBACK_SETTINGS);
   const { prices: savedPrices, banners, outlets, company: companyInfo } = settings;
   const setSavedPrices = useCallback((value) => saveSection('prices', value), [saveSection]);
   const setBanners = useCallback((value) => saveSection('banners', value), [saveSection]);
@@ -80,6 +80,7 @@ export default function App() {
               prices={prices}
               outlets={outlets}
               companyInfo={companyInfo}
+              settingsLoading={settingsLoading}
               liveStatus={liveStatus}
               onRefresh={refreshLive}
             />

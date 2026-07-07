@@ -1,47 +1,69 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function HeroBanner({ banners }) {
+export default function HeroBanner({ banners, isLoading = false }) {
   const [current, setCurrent] = useState(0);
   const timerRef = useRef(null);
+  const reduceMotion = useReducedMotion();
+  const activeIndex = current < banners.length ? current : 0;
+  const activeBanner = banners[activeIndex];
 
-  const startTimer = () => {
+  const startTimer = useCallback(() => {
     clearInterval(timerRef.current);
+    if (isLoading || banners.length <= 1) return;
     timerRef.current = setInterval(() => {
       setCurrent((prev) => (prev + 1) % banners.length);
     }, 5000);
-  };
+  }, [banners.length, isLoading]);
 
   useEffect(() => {
     startTimer();
     return () => clearInterval(timerRef.current);
+  }, [startTimer]);
+
+  useEffect(() => {
+    setCurrent((previous) => banners.length ? Math.min(previous, banners.length - 1) : 0);
   }, [banners.length]);
 
   const goTo = (idx) => {
     setCurrent(idx);
     startTimer();
   };
-  const prev = () => goTo((current - 1 + banners.length) % banners.length);
-  const next = () => goTo((current + 1) % banners.length);
+  const prev = () => goTo((activeIndex - 1 + banners.length) % banners.length);
+  const next = () => goTo((activeIndex + 1) % banners.length);
 
-  if (!banners.length) return null;
+  if (isLoading) {
+    return (
+      <section
+        id="beranda"
+        aria-busy="true"
+        className="relative h-screen min-h-[600px] max-h-[900px] overflow-hidden bg-gray-900 dark:bg-dark-900"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-950 via-gray-900 to-gray-950" />
+      </section>
+    );
+  }
+
+  if (!activeBanner) return null;
 
   return (
     <section id="beranda" className="relative h-screen min-h-[600px] max-h-[900px] overflow-hidden">
       {/* Slides */}
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="wait">
         <motion.div
-          key={current}
-          initial={{ opacity: 0, scale: 1.05 }}
+          key={`${activeBanner.id}-${activeBanner.imageUrl}`}
+          initial={{ opacity: 0, scale: reduceMotion ? 1 : 1.02 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.9, ease: 'easeOut' }}
+          transition={{ duration: reduceMotion ? 0.1 : 0.35, ease: 'easeOut' }}
           className="absolute inset-0"
         >
           <img
-            src={banners[current].imageUrl}
-            alt={banners[current].title}
+            src={activeBanner.imageUrl}
+            alt={activeBanner.title}
+            loading="eager"
+            fetchPriority="high"
             className="w-full h-full object-cover"
           />
           {/* Multi-layer overlay */}
@@ -71,7 +93,7 @@ export default function HeroBanner({ banners }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <AnimatePresence mode="wait">
             <motion.div
-              key={current}
+              key={activeBanner.id}
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -90,24 +112,24 @@ export default function HeroBanner({ banners }) {
               </motion.div>
 
               <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold leading-tight mb-5 text-shadow">
-                <span className="text-white">{banners[current].title.split(' ').slice(0, 2).join(' ')}</span>
+                <span className="text-white">{activeBanner.title.split(' ').slice(0, 2).join(' ')}</span>
                 {' '}
-                <span className="gold-text">{banners[current].title.split(' ').slice(2).join(' ')}</span>
+                <span className="gold-text">{activeBanner.title.split(' ').slice(2).join(' ')}</span>
               </h1>
 
               <p className="text-white/80 text-lg md:text-xl leading-relaxed mb-8 max-w-xl">
-                {banners[current].subtitle}
+                {activeBanner.subtitle}
               </p>
 
               <div className="flex flex-wrap gap-4">
                 <button
                   onClick={() => {
-                    const el = document.getElementById(banners[current].ctaLink.replace('#', ''));
+                    const el = document.getElementById(activeBanner.ctaLink.replace('#', ''));
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                   }}
                   className="btn-gold text-base px-8 py-3.5"
                 >
-                  {banners[current].ctaText}
+                  {activeBanner.ctaText}
                 </button>
                 <button
                   onClick={() => {
@@ -145,7 +167,7 @@ export default function HeroBanner({ banners }) {
             key={i}
             onClick={() => goTo(i)}
             className={`transition-all duration-300 rounded-full ${
-              i === current
+              i === activeIndex
                 ? 'w-8 h-2.5 bg-gold-400'
                 : 'w-2.5 h-2.5 bg-white/30 hover:bg-white/60'
             }`}
