@@ -7,7 +7,7 @@ import {
   ExternalLink, Eye, Settings, RefreshCw, Wifi, WifiOff, Radio, Key, Shield, Upload,
   Globe, Store, Phone, Mail, FileText, EyeOff, AlertTriangle, Calculator
 } from 'lucide-react';
-import { calculateKaratPrices, calculateKaratPricesFromSpot, normalizeKaratLabel, saveApiKey, getStoredApiKey, testApiKey } from '../services/goldPriceApi';
+import { calculateKaratPrices, calculateKaratPricesFromSpot, calculatePercentageChange, normalizeKaratLabel, saveApiKey, getStoredApiKey, testApiKey } from '../services/goldPriceApi';
 import { uploadBannerImage, checkImageSize } from '../utils/imageUpload';
 import { DEFAULT_FOOTER_ADDRESS, normalizeMapEmbedUrl, normalizeWhatsAppNumber } from '../utils/settings';
 import { FacebookIcon, InstagramIcon, WhatsAppIcon } from '../components/SocialIcons';
@@ -260,7 +260,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
     const newId = Date.now();
     setData((prev) => [
       ...prev,
-      { id: newId, category: '', kadar: '', buyPrice: 0, sellPrice: 0, trend: 'up', change: '+0.0%' },
+      { id: newId, category: '', kadar: '', buyPrice: 0, sellPrice: 0, trend: 'up', change: '+0.00%' },
     ]);
     setEditId(newId);
   };
@@ -277,11 +277,51 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
   };
 
   const handleSave = () => {
+    const previousByKarat = new Map();
+    const previousByKaratLabel = new Map();
+    (prevPricesRef.current || []).forEach((price) => {
+      const kadar = normalizeKaratLabel(price.kadar);
+      const key = `${String(price.category || '').trim().toLowerCase()}::${kadar.toLowerCase()}`;
+      previousByKarat.set(key, price);
+      previousByKaratLabel.set(kadar.toLowerCase(), price);
+    });
+
     const normalizedByKarat = new Map();
     data.forEach((price) => {
       const normalizedPrice = { ...price, kadar: normalizeKaratLabel(price.kadar) };
       const key = `${normalizedPrice.category.trim().toLowerCase()}::${normalizedPrice.kadar.toLowerCase()}`;
-      normalizedByKarat.set(key, normalizedPrice);
+      const previousPrice = previousByKarat.get(key)
+        || previousByKaratLabel.get(normalizedPrice.kadar.toLowerCase());
+      const autoReference = calculateKaratPricesFromSpot(
+        liveStatus.spotIdrPerGram,
+        normalizedPrice.kadar,
+        {
+          buyMargin: (companyInfo?.buyMargin ?? 3) / 100,
+          sellMargin: (companyInfo?.sellMargin ?? 3) / 100,
+        },
+      );
+      const pricesUnchanged = previousPrice
+        && Number(previousPrice.buyPrice) === Number(normalizedPrice.buyPrice)
+        && Number(previousPrice.sellPrice) === Number(normalizedPrice.sellPrice);
+      const previousChangeNumber = Number.parseFloat(previousPrice?.change);
+      const hasMeaningfulPreviousChange = Number.isFinite(previousChangeNumber)
+        && Math.abs(previousChangeNumber) > 0.0001;
+      const baselinePrice = pricesUnchanged && !hasMeaningfulPreviousChange
+        ? (autoReference || previousPrice)
+        : (previousPrice || autoReference);
+      const baselineMidPrice = baselinePrice
+        ? (Number(baselinePrice.buyPrice) + Number(baselinePrice.sellPrice)) / 2
+        : null;
+      const currentMidPrice = (Number(normalizedPrice.buyPrice) + Number(normalizedPrice.sellPrice)) / 2;
+      const priceChange = calculatePercentageChange(baselineMidPrice, currentMidPrice);
+      const effectiveChange = pricesUnchanged && hasMeaningfulPreviousChange
+        ? { trend: previousPrice.trend || 'up', change: previousPrice.change }
+        : priceChange;
+      normalizedByKarat.set(key, {
+        ...normalizedPrice,
+        trend: effectiveChange?.trend || 'up',
+        change: effectiveChange?.change || '+0.00%',
+      });
     });
     const normalizedData = [...normalizedByKarat.values()];
     setData(normalizedData);
@@ -346,7 +386,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
       {!useLive && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400/80 text-xs flex items-center gap-2">
           <WifiOff size={13} />
-          Mode Manual aktif. Isi kadar seperti <strong className="text-amber-400">22</strong> atau <strong className="text-amber-400">22K</strong> agar harga otomatis dihitung dari harga 24K, lalu klik <strong className="text-amber-400">Simpan</strong>.
+          Mode Manual aktif. Isi kadar seperti <strong className="text-amber-400">22</strong> atau <strong className="text-amber-400">22K</strong> agar harga dihitung dari 24K. Trend dan Change dihitung otomatis dari harga beli terakhir saat <strong className="text-amber-400">Simpan</strong>.
         </div>
       )}
 
@@ -409,8 +449,9 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                     <td className="py-2 px-3 text-center">
                       <select
                         value={row.trend}
-                        onChange={(e) => update(row.id, 'trend', e.target.value)}
-                        className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary-600/60"
+                        disabled
+                        title="Dihitung otomatis saat Simpan"
+                        className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-500 dark:text-white/50 text-xs cursor-not-allowed"
                       >
                         <option value="up">🟢 Naik</option>
                         <option value="down">🔴 Turun</option>
@@ -419,9 +460,10 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                     <td className="py-2 px-3">
                       <input
                         value={row.change}
-                        onChange={(e) => update(row.id, 'change', e.target.value)}
-                        className="w-20 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-900 dark:text-white text-sm text-center focus:outline-none focus:border-primary-600/60"
-                        placeholder="+0.0%"
+                        readOnly
+                        title="Dihitung otomatis saat Simpan"
+                        className="w-20 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-500 dark:text-white/50 text-sm text-center cursor-not-allowed"
+                        placeholder="+0.00%"
                       />
                     </td>
                     <td className="py-2 px-3 text-center">
@@ -630,8 +672,9 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                     <label className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5 block">Trend</label>
                     <select
                       value={row.trend}
-                      onChange={(e) => update(row.id, 'trend', e.target.value)}
-                      className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary-600/60"
+                      disabled
+                      title="Dihitung otomatis saat Simpan"
+                      className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-500 dark:text-white/50 text-xs cursor-not-allowed"
                     >
                       <option value="up">🟢 Naik</option>
                       <option value="down">🔴 Turun</option>
@@ -641,9 +684,10 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                     <label className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5 block">Change</label>
                     <input
                       value={row.change}
-                      onChange={(e) => update(row.id, 'change', e.target.value)}
-                      className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-primary-600/60"
-                      placeholder="+0.0%"
+                      readOnly
+                      title="Dihitung otomatis saat Simpan"
+                      className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-500 dark:text-white/50 text-sm cursor-not-allowed"
+                      placeholder="+0.00%"
                     />
                   </div>
                 </div>
@@ -1152,6 +1196,96 @@ function Dashboard({ prices, banners, outlets, liveStatus, refreshLive, useLive,
         })}
       </div>
 
+      {/* ── Harga Spot Live 24K ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="mb-8"
+      >
+        <div className="glass border border-gray-200 dark:border-white/8 rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-gold-400/10 via-amber-400/5 to-transparent dark:from-gold-400/10 dark:via-amber-400/5 dark:to-transparent px-6 py-4 border-b border-gray-100 dark:border-white/5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gold-400/15 flex items-center justify-center">
+                  <TrendingUp size={20} className="text-gold-400" />
+                </div>
+                <div>
+                  <h3 className="text-gray-900 dark:text-white font-bold text-sm">Harga Spot Live 24K</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                      <Wifi size={9} />
+                      GoldAPI.io
+                    </span>
+                    {liveStatus?.timestamp && (
+                      <span className="text-gray-400 dark:text-white/30 text-[10px]">
+                        {new Date(liveStatus.timestamp).toLocaleString('id-ID', {
+                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {liveStatus?.source === 'live' && (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    LIVE
+                  </span>
+                )}
+                {liveStatus?.source === 'cache' && (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-blue-500 bg-blue-500/10 px-2.5 py-1 rounded-full">
+                    <Globe size={10} />
+                    CACHE
+                  </span>
+                )}
+                {(!liveStatus?.source || liveStatus?.source === 'error' || liveStatus?.source === 'stale-cache') && (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full">
+                    <WifiOff size={10} />
+                    {liveStatus?.source === 'stale-cache' ? 'LAMA' : 'OFFLINE'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-5">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-4xl md:text-5xl font-bold font-mono text-gray-900 dark:text-white tracking-tight">
+                Rp {liveStatus?.spotIdrPerGram ? new Intl.NumberFormat('id-ID').format(liveStatus.spotIdrPerGram) : '—'}
+              </span>
+              <span className="text-lg text-gray-400 dark:text-white/30 font-medium">/gram</span>
+            </div>
+            <p className="text-gray-400 dark:text-white/30 text-xs mt-2">
+              Harga spot emas dunia (XAU/USD) dikonversi ke Rupiah per gram. Harga ini menjadi acuan perhitungan seluruh kadar emas di sistem.
+            </p>
+
+            <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-white/5">
+              {useLive && (
+                <button
+                  onClick={refreshLive}
+                  disabled={liveStatus?.loading}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    liveStatus?.loading
+                      ? 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/30 cursor-not-allowed'
+                      : 'bg-primary-600/10 text-primary-400 hover:bg-primary-600/20'
+                  }`}
+                >
+                  <RefreshCw size={12} className={liveStatus?.loading ? 'animate-spin' : ''} />
+                  Refresh Harga
+                </button>
+              )}
+              <span className="text-gray-400 dark:text-white/25 text-[10px]">
+                {useLive
+                  ? 'Auto-refresh setiap jam · Klik untuk update sekarang'
+                  : 'Aktifkan mode Auto Live untuk memperbarui harga'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       <LiveStatusBadge
         liveStatus={liveStatus}
         refreshLive={refreshLive}
@@ -1618,8 +1752,32 @@ export default function Admin({ prices, banners, outlets, companyInfo, hidden_ka
             <span className="text-gray-700 dark:text-white/80 text-sm capitalize">{TAB_MENUS.find((t) => t.id === activeTab)?.label}</span>
           </div>
 
-          {/* Saved toast */}
-          <AnimatePresence>
+          {/* ── Spot Price Live ── */}
+          <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+              liveStatus?.source === 'live'
+                ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                : liveStatus?.source === 'cache'
+                ? 'bg-blue-500/5 border-blue-500/20 text-blue-600 dark:text-blue-400'
+                : 'bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-400 dark:text-white/30'
+            }`}>
+              <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-wider opacity-70">
+                <Wifi size={9} className={liveStatus?.source === 'live' ? 'text-emerald-400' : liveStatus?.source === 'cache' ? 'text-blue-400' : ''} />
+                GoldAPI.io
+              </span>
+              <span className="text-gray-300 dark:text-white/15">|</span>
+              <span className="font-mono text-xs tracking-tight">
+                {liveStatus?.spotIdrPerGram
+                  ? `Rp ${new Intl.NumberFormat('id-ID').format(liveStatus.spotIdrPerGram)}/g`
+                  : '—/g'}
+              </span>
+              {liveStatus?.source === 'live' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Live" />
+              )}
+            </div>
+
+            {/* Saved toast */}
+            <AnimatePresence>
             {saved && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -1638,6 +1796,7 @@ export default function Admin({ prices, banners, outlets, companyInfo, hidden_ka
             className="md:hidden flex items-center gap-2 text-red-400 text-sm">
             <LogOut size={16} /> Keluar
           </button>
+          </div>
         </div>
 
         {/* Content */}

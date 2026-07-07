@@ -199,6 +199,50 @@ function isCacheFresh() {
   return ts ? Date.now() - ts < CACHE_TTL_MS : false;
 }
 
+export function calculatePercentageChange(previousPrice, currentPrice) {
+  if (!previousPrice || !currentPrice) return null;
+
+  const percentage = ((currentPrice - previousPrice) / previousPrice) * 100;
+  return formatPercentageChange(percentage);
+}
+
+function formatPercentageChange(percentage) {
+  const decimals = Math.abs(percentage) < 0.1 ? 3 : 2;
+  return {
+    trend: percentage >= 0 ? 'up' : 'down',
+    change: `${percentage >= 0 ? '+' : ''}${percentage.toFixed(decimals)}%`,
+  };
+}
+
+function getCachedSpotChange(currentSpotUsd) {
+  const previousSpotUsd = Number(readCache(CACHE_KEY_SPOT)) || null;
+  writeCache(CACHE_KEY_SPOT, currentSpotUsd);
+  return calculatePercentageChange(previousSpotUsd, currentSpotUsd);
+}
+
+async function fetchDailySpotChange() {
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 8000);
+    const response = await fetch('https://xaus.com/api/v1/history', { signal: ctrl.signal });
+    clearTimeout(timeout);
+    if (!response.ok) return null;
+
+    const json = await response.json();
+    const closes = (json.points || [])
+      .filter((point) => point?.d && Number(point.c) > 0)
+      .sort((left, right) => String(left.d).localeCompare(String(right.d)));
+    if (closes.length < 2) return null;
+
+    return calculatePercentageChange(
+      Number(closes[closes.length - 2].c),
+      Number(closes[closes.length - 1].c),
+    );
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Generic fetch helper
 // ---------------------------------------------------------------------------
@@ -285,9 +329,16 @@ async function tryGoldApiIo() {
     if (!usdToIdr) return null;
 
     const idrPerGram = (json.price / TROY_OUNCE_TO_GRAM) * usdToIdr;
-    const trend = (json.ch ?? 0) >= 0 ? 'up' : 'down';
-    const chp = typeof json.chp === 'number' ? json.chp : 0;
-    const change = `${chp >= 0 ? '+' : ''}${chp.toFixed(2)}%`;
+    const cachedChange = getCachedSpotChange(json.price);
+    const previousClose = Number(json.prev_close_price) || null;
+    const derivedDailyChange = calculatePercentageChange(previousClose, json.price);
+    const rawChp = Number(json.chp);
+    const apiChange = Number.isFinite(rawChp) && rawChp !== 0
+      ? formatPercentageChange(rawChp)
+      : null;
+    const priceChange = apiChange || derivedDailyChange || cachedChange;
+    const trend = priceChange?.trend || 'up';
+    const change = priceChange?.change || '—';
 
     return { idrPerGram, trend, change };
   } catch (err) {
@@ -301,15 +352,22 @@ async function tryGoldApiIo() {
  * Returns { idrPerGram, trend, change } or null.
  */
 async function tryFreeApis() {
-  const [spotUsd, usdToIdr] = await Promise.all([
+  const [spotUsd, usdToIdr, dailyChange] = await Promise.all([
     tryFetch(FREE_SPOT_ENDPOINTS, 'gold-spot'),
     tryFetch(FREE_FOREX_ENDPOINTS, 'USD/IDR'),
+    fetchDailySpotChange(),
   ]);
 
   if (!spotUsd || !usdToIdr) return null;
 
   const idrPerGram = (spotUsd / TROY_OUNCE_TO_GRAM) * usdToIdr;
-  return { idrPerGram, trend: 'up', change: '+0.0%' };
+  const cachedChange = getCachedSpotChange(spotUsd);
+  const priceChange = dailyChange || cachedChange;
+  return {
+    idrPerGram,
+    trend: priceChange?.trend || 'up',
+    change: priceChange?.change || '—',
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +454,6 @@ export function getLastFetchTimestamp() {
 export function clearPriceCache() {
   try {
     localStorage.removeItem(CACHE_KEY_PRICES);
-    localStorage.removeItem(CACHE_KEY_SPOT);
     localStorage.removeItem(CACHE_KEY_FOREX);
     localStorage.removeItem(CACHE_KEY_TIMESTAMP);
     localStorage.removeItem('sg_margin_ver');
