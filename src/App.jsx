@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useGoldPrices } from './hooks/useGoldPrices';
 import { useSettings } from './hooks/useSettings';
@@ -22,11 +22,25 @@ function ProtectedRoute({ isAuthenticated, isLoading, children }) {
 
 export default function App() {
   const { settings, saveSection, isLoading: settingsLoading } = useSettings(FALLBACK_SETTINGS);
-  const { prices: savedPrices, banners, outlets, company: companyInfo } = settings;
-  const setSavedPrices = useCallback((value) => saveSection('prices', value), [saveSection]);
+  const { prices: savedPrices, banners, outlets, company: companyInfo, hidden_karats } = settings;
+  const setSavedPrices = useCallback((value) => {
+    // Detect karats deleted in Manual mode → auto-add to hidden list
+    // so they stay hidden when switching back to Auto mode
+    const oldKarats = new Set((savedPrices || []).map((p) => p.kadar));
+    const newKarats = new Set((value || []).map((p) => p.kadar));
+    const deletedKarats = [...oldKarats].filter((k) => !newKarats.has(k));
+
+    if (deletedKarats.length > 0) {
+      const nextHidden = [...new Set([...(hidden_karats || []), ...deletedKarats])];
+      saveSection('hidden_karats', nextHidden);
+    }
+
+    return saveSection('prices', value);
+  }, [saveSection, savedPrices, hidden_karats]);
   const setBanners = useCallback((value) => saveSection('banners', value), [saveSection]);
   const setOutlets = useCallback((value) => saveSection('outlets', value), [saveSection]);
   const setCompanyInfo = useCallback((value) => saveSection('company', value), [saveSection]);
+  const setHiddenKarats = useCallback((value) => saveSection('hidden_karats', value), [saveSection]);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const isAuthenticated = Boolean(session);
@@ -58,6 +72,13 @@ export default function App() {
     setUseLive,
   } = useGoldPrices(FALLBACK_SETTINGS.prices, savedPrices);
 
+  // Filter out hidden karats (admin can hide rows even in Auto mode)
+  const hiddenSet = useMemo(() => new Set(hidden_karats || []), [hidden_karats]);
+  const displayPrices = useMemo(
+    () => (hiddenSet.size > 0 ? prices.filter((p) => !hiddenSet.has(p.kadar)) : prices),
+    [prices, hiddenSet],
+  );
+
   const handleLogin = async (username, password) => {
     const nextSession = await signInAdmin(username, password);
     setSession(nextSession);
@@ -77,7 +98,7 @@ export default function App() {
           element={
             <Home
               banners={banners}
-              prices={prices}
+              prices={displayPrices}
               outlets={outlets}
               companyInfo={companyInfo}
               settingsLoading={settingsLoading}
@@ -105,14 +126,16 @@ export default function App() {
           element={
             <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
               <Admin
-                prices={prices}
+                prices={displayPrices}
                 banners={banners}
                 outlets={outlets}
                 companyInfo={companyInfo}
+                hidden_karats={hidden_karats}
                 onSavePrices={setSavedPrices}
                 onSaveBanners={setBanners}
                 onSaveOutlets={setOutlets}
                 onSaveCompany={setCompanyInfo}
+                onSaveHiddenKarats={setHiddenKarats}
                 onLogout={handleLogout}
                 onChangePassword={changeAdminPassword}
                 liveStatus={liveStatus}

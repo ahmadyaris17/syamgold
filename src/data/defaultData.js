@@ -1,16 +1,7 @@
 // Fallback data used while shared settings.json is unavailable or loading.
+// All prices are sourced from Supabase — these are empty defaults only.
 
-export const DEFAULT_GOLD_PRICES = [
-  { id: 1, category: 'Emas Perhiasan', kadar: '24K', buyPrice: 1720000, sellPrice: 1780000, trend: 'up', change: '+0.8%' },
-  { id: 2, category: 'Emas Perhiasan', kadar: '22K', buyPrice: 1580000, sellPrice: 1640000, trend: 'up', change: '+0.6%' },
-  { id: 3, category: 'Emas Perhiasan', kadar: '18K', buyPrice: 1290000, sellPrice: 1340000, trend: 'down', change: '-0.2%' },
-  { id: 4, category: 'Emas Perhiasan', kadar: '17K', buyPrice: 1220000, sellPrice: 1270000, trend: 'up', change: '+0.4%' },
-  { id: 5, category: 'Emas Perhiasan', kadar: '16K', buyPrice: 1150000, sellPrice: 1200000, trend: 'up', change: '+0.3%' },
-  { id: 6, category: 'Emas Perhiasan', kadar: '8K', buyPrice: 575000,  sellPrice: 610000,  trend: 'down', change: '-0.1%' },
-  { id: 7, category: 'Logam Mulia',    kadar: 'LM Antam',  buyPrice: 1820000, sellPrice: 1890000, trend: 'up', change: '+1.2%' },
-  { id: 8, category: 'Logam Mulia',    kadar: 'LM UBS',    buyPrice: 1810000, sellPrice: 1880000, trend: 'up', change: '+1.0%' },
-  { id: 9, category: 'Emas Tanpa Surat', kadar: 'Tanpa Surat', buyPrice: 1650000, sellPrice: 1710000, trend: 'up', change: '+0.7%' },
-];
+export const DEFAULT_GOLD_PRICES = [];
 
 export const DEFAULT_BANNERS = [
   {

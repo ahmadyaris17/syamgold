@@ -193,8 +193,18 @@ export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-20 bg-white dark:bg-dark-800/50 border border-gray-100 dark:border-white/8 rounded-3xl"
           >
-            <RefreshCw size={36} className="mx-auto mb-4 text-gray-300 dark:text-white/20 animate-spin" style={{ animationDuration: '2.5s' }} />
-            <p className="text-gray-500 dark:text-white/40 font-medium">Mengambil data dari GoldAPI.io...</p>
+            {liveStatus?.loading ? (
+              <>
+                <RefreshCw size={36} className="mx-auto mb-4 text-gray-300 dark:text-white/20 animate-spin" style={{ animationDuration: '2.5s' }} />
+                <p className="text-gray-500 dark:text-white/40 font-medium">Mengambil data dari GoldAPI.io...</p>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl mb-4">📊</div>
+                <p className="text-gray-500 dark:text-white/40 font-medium">Belum ada data harga emas</p>
+                <p className="text-gray-400 dark:text-white/25 text-sm mt-1">Admin dapat mengatur harga melalui panel admin</p>
+              </>
+            )}
           </motion.div>
         ) : (
           <>
@@ -271,7 +281,7 @@ export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }
               <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 dark:border-white/8 bg-gray-50/50 dark:bg-white/[0.02]">
                 <span className="text-[10px] text-gray-400 dark:text-white/25 flex items-center gap-1">
                   <RefreshCw size={10} className={liveStatus?.loading ? 'animate-spin' : ''} />
-                  {liveStatus?.loading ? 'Memperbarui...' : 'Data dari GoldAPI.io · Update otomatis tiap jam'}
+                  {liveStatus?.loading ? 'Memperbarui...' : liveStatus?.source === 'live' ? 'Data dari GoldAPI.io · Update otomatis tiap jam' : 'Data dari database · Diperbarui oleh admin'}
                 </span>
                 {onRefresh && (
                   <button

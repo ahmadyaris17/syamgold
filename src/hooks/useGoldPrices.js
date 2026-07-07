@@ -2,15 +2,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchLivePrices } from '../services/goldPriceApi';
 
 /**
- * Hook that manages gold prices with automatic live-price fetching.
+ * Hook that manages gold prices — live API first, Supabase as fallback.
  *
- * - Starts empty — never shows hardcoded default prices.
- * - On mount: fetches live prices from API (cache-first, network-second).
+ * - Default: auto mode (useLive=true) — prices fetched from GoldAPI.io / free APIs.
+ * - Admin can switch to manual mode → edit → save to Supabase.
+ * - Manual mode persists via localStorage (`sg_use_live`).
  * - `refreshLive()` — force a fresh network fetch.
- * - `useLive` toggle in localStorage (`sg_use_live`) controls auto mode.
  *
  * @param {Array} _defaultPrices - Unused (for future use)
- * @param {Array} savedPrices    - User's saved manual prices
+ * @param {Array} savedPrices    - User's saved manual prices from Supabase
  * @returns {{ prices: Array, liveStatus: object, refreshLive: Function, useLive: boolean, setUseLive: Function }}
  */
 export function useGoldPrices(_defaultPrices, savedPrices) {
@@ -25,6 +25,7 @@ export function useGoldPrices(_defaultPrices, savedPrices) {
   const [useLive, setUseLiveState] = useState(() => {
     try {
       const val = localStorage.getItem('sg_use_live');
+      // Default to true — auto-fetch live prices from GoldAPI.io
       return val === null ? true : val === 'true';
     } catch {
       return true;

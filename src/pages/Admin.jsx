@@ -5,7 +5,7 @@ import {
   LayoutDashboard, TrendingUp, Image, MapPin, LogOut, Plus,
   Trash2, Edit3, Save, Check, ArrowUp, ArrowDown,
   ExternalLink, Eye, Settings, RefreshCw, Wifi, WifiOff, Radio, Key, Shield, Upload,
-  Globe, Store, Phone, Mail, FileText
+  Globe, Store, Phone, Mail, FileText, EyeOff, AlertTriangle
 } from 'lucide-react';
 import { saveApiKey, getStoredApiKey, testApiKey } from '../services/goldPriceApi';
 import { uploadBannerImage, checkImageSize } from '../utils/imageUpload';
@@ -67,33 +67,57 @@ function LiveStatusBadge({ liveStatus, refreshLive, useLive, setUseLive }) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Auto/Manual toggle */}
-        <button
-          onClick={() => setUseLive(!useLive)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-            useLive
-              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-              : 'glass text-gray-500 dark:text-white/50 border border-gray-200 dark:border-white/10 hover:text-gray-900 dark:text-white'
-          }`}
-          title={useLive ? 'Mode Auto: harga ikut live' : 'Mode Manual: harga diatur sendiri'}
-        >
-          <Radio size={12} />
-          {useLive ? 'Auto' : 'Manual'}
-        </button>
+        {/* Segmented control — Auto / Manual */}
+        <div className="relative flex bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-1 gap-1">
+          <motion.div
+            className={`absolute top-1 rounded-lg shadow-sm transition-all duration-300 ${
+              useLive
+                ? 'left-1 bg-emerald-500/20 border border-emerald-500/30'
+                : 'left-[calc(50%+2px)] bg-amber-500/20 border border-amber-500/30'
+            }`}
+            style={{ width: 'calc(50% - 6px)', height: 'calc(100% - 8px)' }}
+          />
+          <button
+            onClick={() => setUseLive(true)}
+            className={`relative z-10 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+              useLive
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/60'
+            }`}
+          >
+            <Radio size={13} />
+            <span className="hidden sm:inline">Auto Live</span>
+            <span className="sm:hidden">Auto</span>
+          </button>
+          <button
+            onClick={() => setUseLive(false)}
+            className={`relative z-10 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+              !useLive
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/60'
+            }`}
+          >
+            <Edit3 size={13} />
+            <span className="hidden sm:inline">Manual</span>
+            <span className="sm:hidden">Man.</span>
+          </button>
+        </div>
 
-        {/* Refresh button */}
-        <button
-          onClick={refreshLive}
-          disabled={loading}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-            loading
-              ? 'glass text-gray-400 dark:text-white/30 cursor-not-allowed'
-              : 'btn-outline text-primary-400 border-primary-600/30 hover:bg-primary-600/10'
-          }`}
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-          Refresh Live
-        </button>
+        {/* Refresh button — only in Auto mode */}
+        {useLive && (
+          <button
+            onClick={refreshLive}
+            disabled={loading}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              loading
+                ? 'glass text-gray-400 dark:text-white/30 cursor-not-allowed'
+                : 'btn-outline text-primary-400 border-primary-600/30 hover:bg-primary-600/10'
+            }`}
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            Refresh Live
+          </button>
+        )}
       </div>
     </div>
   );
@@ -102,10 +126,82 @@ function LiveStatusBadge({ liveStatus, refreshLive, useLive, setUseLive }) {
 // --- Common kadar suggestions (datalist, not hardcoded restriction) ---
 const COMMON_KARAT_OPTIONS = ['24K', '22K', '18K', '17K', '16K', '8K', 'LM Antam', 'LM UBS', 'Tanpa Surat'];
 
+// --- Confirm Modal ---
+function ConfirmModal({ onClose, onConfirm, title, message, confirmLabel, confirmVariant = 'warning' }) {
+  const variantStyles = {
+    warning: 'bg-amber-500 hover:bg-amber-400 text-black',
+    danger: 'bg-red-500 hover:bg-red-400 text-white',
+    primary: 'bg-primary-600 hover:bg-primary-500 text-white',
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className="bg-white dark:bg-dark-800 border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <div className={`p-2 rounded-xl shrink-0 ${
+            confirmVariant === 'danger' ? 'bg-red-500/10 text-red-400' :
+            confirmVariant === 'warning' ? 'bg-amber-500/10 text-amber-400' :
+            'bg-primary-500/10 text-primary-400'
+          }`}>
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <h3 className="text-gray-900 dark:text-white font-bold text-sm mb-1">{title}</h3>
+            <p className="text-gray-500 dark:text-white/40 text-xs leading-relaxed">{message}</p>
+          </div>
+        </div>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-500 dark:text-white/50 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${variantStyles[confirmVariant]}`}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // --- Gold Price Management (CRUD — categories are free-text input) ---
-function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUseLive }) {
+function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUseLive, hidden_karats, onSaveHiddenKarats }) {
   const [data, setData] = useState(() => prices.map((p) => ({ ...p })));
   const [editId, setEditId] = useState(null);
+  const [toast, setToast] = useState(null); // { message, type }
+  const [confirm, setConfirm] = useState(null); // { title, message, confirmLabel, confirmVariant, onConfirm }
+  const hiddenSet = new Set(hidden_karats || []);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const confirmThen = (opts) => {
+    setConfirm({ ...opts, onClose: () => setConfirm(null) });
+  };
+
+  const executeConfirm = () => {
+    if (confirm?.onConfirm) confirm.onConfirm();
+    setConfirm(null);
+  };
 
   // Sync from external when live prices refresh
   const prevPricesRef = useRef(prices);
@@ -117,6 +213,13 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
   }, [prices, useLive]);
 
   const formatPrice = (num) => new Intl.NumberFormat('id-ID').format(num);
+
+  // Price input helpers — format with dots, strip leading zeros
+  const formatPriceInput = (n) => (n === 0 ? '' : n.toLocaleString('id-ID'));
+  const parsePriceInput = (raw) => {
+    const digits = raw.replace(/\D/g, '');
+    return digits === '' ? 0 : parseInt(digits, 10);
+  };
 
   const update = (id, field, value) => {
     setData((prev) =>
@@ -181,10 +284,29 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
         setUseLive={setUseLive}
       />
 
+      {/* Toast notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`mb-4 px-4 py-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+              toast.type === 'success'
+                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            }`}
+          >
+            <Check size={13} />
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {useLive && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-blue-400/10 border border-blue-400/20 text-blue-400/80 text-xs flex items-center gap-2">
           <Wifi size={13} />
-          Mode Auto aktif — harga diperbarui otomatis dari API. Edit atau hapus data akan otomatis mengaktifkan mode Manual.
+          Mode Auto aktif — harga dari GoldAPI.io. Klik ikon <EyeOff size={11} className="inline" /> untuk sembunyikan baris dari halaman publik. Edit/hapus akan mengaktifkan mode Manual.
         </div>
       )}
 
@@ -233,18 +355,22 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                     </td>
                     <td className="py-2 px-3">
                       <input
-                        type="number"
-                        value={row.buyPrice}
-                        onChange={(e) => update(row.id, 'buyPrice', e.target.value)}
+                        type="text"
+                        inputMode="numeric"
+                        value={formatPriceInput(row.buyPrice)}
+                        onChange={(e) => update(row.id, 'buyPrice', parsePriceInput(e.target.value))}
                         className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gold-400 text-sm font-mono text-right focus:outline-none focus:border-primary-600/60"
+                        placeholder="0"
                       />
                     </td>
                     <td className="py-2 px-3">
                       <input
-                        type="number"
-                        value={row.sellPrice}
-                        onChange={(e) => update(row.id, 'sellPrice', e.target.value)}
+                        type="text"
+                        inputMode="numeric"
+                        value={formatPriceInput(row.sellPrice)}
+                        onChange={(e) => update(row.id, 'sellPrice', parsePriceInput(e.target.value))}
                         className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-primary-400 text-sm font-mono text-right focus:outline-none focus:border-primary-600/60"
+                        placeholder="0"
                       />
                     </td>
                     <td className="py-2 px-3 text-center">
@@ -275,7 +401,18 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                           <Check size={15} />
                         </button>
                         <button
-                          onClick={() => deletePrice(row.id)}
+                          onClick={() => {
+                            confirmThen({
+                              title: 'Hapus Harga',
+                              message: `Yakin ingin menghapus "${row.kadar} — ${row.category}"?`,
+                              confirmLabel: 'Hapus',
+                              confirmVariant: 'danger',
+                              onConfirm: () => {
+                                deletePrice(row.id);
+                                showToast(`"${row.kadar}" dihapus`, 'success');
+                              },
+                            });
+                          }}
                           className="p-1.5 rounded-lg bg-red-600/10 text-red-400 hover:bg-red-600/30 transition-colors"
                           title="Hapus"
                         >
@@ -286,7 +423,14 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                   </tr>
                 ) : (
                   <tr key={row.id} className="border-b border-gray-100 dark:border-white/5 last:border-0 hover:bg-gray-50/50 dark:bg-white/[0.02] transition-colors">
-                    <td className="py-3 px-4 text-gray-900 dark:text-white text-sm font-medium">{row.kadar}</td>
+                    <td className="py-3 px-4 text-gray-900 dark:text-white text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        {row.kadar}
+                        {useLive && hiddenSet.has(row.kadar) && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-400">Disembunyikan</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-gray-500 dark:text-white/50 text-sm">{row.category}</td>
                     <td className="py-3 px-4 text-gold-400 text-sm font-mono text-right">
                       Rp {formatPrice(row.buyPrice)}
@@ -305,22 +449,69 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                     <td className="py-3 px-4 text-gray-500 dark:text-white/50 text-sm text-center">{row.change}</td>
                     <td className="py-2 px-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => editPrice(row.id)}
-                          className="p-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 hover:text-primary-400 hover:bg-primary-600/20 transition-colors"
-                          title="Edit"
-                          aria-label={`Edit harga ${row.kadar}`}
-                        >
-                          <Edit3 size={15} />
-                        </button>
-                        <button
-                          onClick={() => deletePrice(row.id)}
-                          className="p-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 hover:text-red-400 hover:bg-red-600/20 transition-colors"
-                          title="Hapus"
-                          aria-label={`Hapus harga ${row.kadar}`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {useLive ? (
+                          <button
+                            onClick={() => {
+                              const isHidden = hiddenSet.has(row.kadar);
+                              const action = isHidden ? 'menampilkan' : 'menyembunyikan';
+                              confirmThen({
+                                title: isHidden ? 'Tampilkan Harga' : 'Sembunyikan Harga',
+                                message: `Yakin ingin ${action} "${row.kadar} — ${row.category}" ${isHidden ? 'di halaman publik' : 'dari halaman publik'}?`,
+                                confirmLabel: isHidden ? 'Tampilkan' : 'Sembunyikan',
+                                confirmVariant: isHidden ? 'primary' : 'warning',
+                                onConfirm: () => {
+                                  const next = isHidden
+                                    ? (hidden_karats || []).filter((k) => k !== row.kadar)
+                                    : [...(hidden_karats || []), row.kadar];
+                                  onSaveHiddenKarats(next);
+                                  showToast(
+                                    isHidden ? `"${row.kadar}" ditampilkan kembali` : `"${row.kadar}" disembunyikan`,
+                                    'success'
+                                  );
+                                },
+                              });
+                            }}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              hiddenSet.has(row.kadar)
+                                ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                                : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 hover:text-amber-400 hover:bg-amber-500/10'
+                            }`}
+                            title={hiddenSet.has(row.kadar) ? 'Tampilkan di halaman publik' : 'Sembunyikan dari halaman publik'}
+                            aria-label={`${hiddenSet.has(row.kadar) ? 'Tampilkan' : 'Sembunyikan'} ${row.kadar}`}
+                          >
+                            {hiddenSet.has(row.kadar) ? <Eye size={15} /> : <EyeOff size={15} />}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => editPrice(row.id)}
+                              className="p-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 hover:text-primary-400 hover:bg-primary-600/20 transition-colors"
+                              title="Edit"
+                              aria-label={`Edit harga ${row.kadar}`}
+                            >
+                              <Edit3 size={15} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                confirmThen({
+                                  title: 'Hapus Harga',
+                                  message: `Yakin ingin menghapus "${row.kadar} — ${row.category}"? Data akan otomatis disembunyikan di mode Auto.`,
+                                  confirmLabel: 'Hapus',
+                                  confirmVariant: 'danger',
+                                  onConfirm: () => {
+                                    deletePrice(row.id);
+                                    showToast(`"${row.kadar}" dihapus`, 'success');
+                                  },
+                                });
+                              }}
+                              className="p-1.5 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-white/40 hover:text-red-400 hover:bg-red-600/20 transition-colors"
+                              title="Hapus"
+                              aria-label={`Hapus harga ${row.kadar}`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -381,19 +572,23 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                   <div>
                     <label className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5 block">Harga Beli / gr</label>
                     <input
-                      type="number"
-                      value={row.buyPrice}
-                      onChange={(e) => update(row.id, 'buyPrice', e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatPriceInput(row.buyPrice)}
+                      onChange={(e) => update(row.id, 'buyPrice', parsePriceInput(e.target.value))}
                       className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gold-400 text-sm font-mono focus:outline-none focus:border-primary-600/60"
+                      placeholder="0"
                     />
                   </div>
                   <div>
                     <label className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5 block">Harga Jual / gr</label>
                     <input
-                      type="number"
-                      value={row.sellPrice}
-                      onChange={(e) => update(row.id, 'sellPrice', e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatPriceInput(row.sellPrice)}
+                      onChange={(e) => update(row.id, 'sellPrice', parsePriceInput(e.target.value))}
                       className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-primary-400 text-sm font-mono focus:outline-none focus:border-primary-600/60"
+                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -423,7 +618,21 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                   <button onClick={() => setEditId(null)} className="btn-primary text-xs py-2 px-4 flex-1">
                     <Check size={14} /> Selesai
                   </button>
-                  <button onClick={() => deletePrice(row.id)} className="btn-outline text-xs py-2 px-4 border-red-600/40 text-red-400 hover:bg-red-600/20">
+                  <button
+                    onClick={() => {
+                      confirmThen({
+                        title: 'Hapus Harga',
+                        message: `Yakin ingin menghapus "${row.kadar} — ${row.category}"? Data akan otomatis disembunyikan di mode Auto.`,
+                        confirmLabel: 'Hapus',
+                        confirmVariant: 'danger',
+                        onConfirm: () => {
+                          deletePrice(row.id);
+                          showToast(`"${row.kadar}" dihapus`, 'success');
+                        },
+                      });
+                    }}
+                    className="btn-outline text-xs py-2 px-4 border-red-600/40 text-red-400 hover:bg-red-600/20"
+                  >
                     <Trash2 size={14} /> Hapus
                   </button>
                 </div>
@@ -438,6 +647,9 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                 <div>
                   <span className="text-gray-900 dark:text-white font-semibold text-sm">{row.kadar}</span>
                   <span className="text-gray-400 dark:text-white/40 text-xs ml-2">{row.category}</span>
+                  {useLive && hiddenSet.has(row.kadar) && (
+                    <span className="text-[9px] ml-2 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 text-gray-400">Disembunyikan</span>
+                  )}
                 </div>
                 <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
                   row.trend === 'up'
@@ -463,18 +675,63 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                 </div>
               </div>
               <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-white/5">
-                <button
-                  onClick={() => editPrice(row.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/50 hover:text-primary-400 hover:bg-primary-600/20 transition-colors text-xs font-medium"
-                >
-                  <Edit3 size={13} /> Edit
-                </button>
-                <button
-                  onClick={() => deletePrice(row.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/50 hover:text-red-400 hover:bg-red-600/20 transition-colors text-xs font-medium"
-                >
-                  <Trash2 size={13} /> Hapus
-                </button>
+                {useLive ? (
+                  <button
+                    onClick={() => {
+                      const isHidden = hiddenSet.has(row.kadar);
+                      const action = isHidden ? 'menampilkan' : 'menyembunyikan';
+                      confirmThen({
+                        title: isHidden ? 'Tampilkan Harga' : 'Sembunyikan Harga',
+                        message: `Yakin ingin ${action} "${row.kadar} — ${row.category}" ${isHidden ? 'di halaman publik' : 'dari halaman publik'}?`,
+                        confirmLabel: isHidden ? 'Tampilkan' : 'Sembunyikan',
+                        confirmVariant: isHidden ? 'primary' : 'warning',
+                        onConfirm: () => {
+                          const next = isHidden
+                            ? (hidden_karats || []).filter((k) => k !== row.kadar)
+                            : [...(hidden_karats || []), row.kadar];
+                          onSaveHiddenKarats(next);
+                          showToast(
+                            isHidden ? `"${row.kadar}" ditampilkan kembali` : `"${row.kadar}" disembunyikan`,
+                            'success'
+                          );
+                        },
+                      });
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors text-xs font-medium ${
+                      hiddenSet.has(row.kadar)
+                        ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                        : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/50 hover:text-amber-400 hover:bg-amber-500/10'
+                    }`}
+                  >
+                    {hiddenSet.has(row.kadar) ? <><Eye size={13} /> Tampilkan</> : <><EyeOff size={13} /> Sembunyikan</>}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => editPrice(row.id)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/50 hover:text-primary-400 hover:bg-primary-600/20 transition-colors text-xs font-medium"
+                    >
+                      <Edit3 size={13} /> Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        confirmThen({
+                          title: 'Hapus Harga',
+                          message: `Yakin ingin menghapus "${row.kadar} — ${row.category}"? Data akan otomatis disembunyikan di mode Auto.`,
+                          confirmLabel: 'Hapus',
+                          confirmVariant: 'danger',
+                          onConfirm: () => {
+                            deletePrice(row.id);
+                            showToast(`"${row.kadar}" dihapus`, 'success');
+                          },
+                        });
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-white/50 hover:text-red-400 hover:bg-red-600/20 transition-colors text-xs font-medium"
+                    >
+                      <Trash2 size={13} /> Hapus
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )
@@ -509,6 +766,20 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
           </button>
         </div>
       )}
+
+      {/* Custom Confirm Modal */}
+      <AnimatePresence>
+        {confirm && (
+          <ConfirmModal
+            onClose={confirm.onClose}
+            onConfirm={executeConfirm}
+            title={confirm.title}
+            message={confirm.message}
+            confirmLabel={confirm.confirmLabel}
+            confirmVariant={confirm.confirmVariant}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1056,7 +1327,7 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
 }
 
 // --- Main Admin Page ---
-export default function Admin({ prices, banners, outlets, companyInfo, onSavePrices, onSaveBanners, onSaveOutlets, onSaveCompany, onLogout, onChangePassword, liveStatus, refreshLive, useLive, setUseLive }) {
+export default function Admin({ prices, banners, outlets, companyInfo, hidden_karats, onSavePrices, onSaveBanners, onSaveOutlets, onSaveCompany, onSaveHiddenKarats, onLogout, onChangePassword, liveStatus, refreshLive, useLive, setUseLive }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -1186,7 +1457,7 @@ export default function Admin({ prices, banners, outlets, companyInfo, onSavePri
               transition={{ duration: 0.25 }}
             >
               {activeTab === 'dashboard' && <Dashboard prices={prices} banners={banners} outlets={outlets} liveStatus={liveStatus} refreshLive={refreshLive} useLive={useLive} setUseLive={setUseLive} />}
-              {activeTab === 'prices' && <PriceManager prices={prices} onSave={handleSave(onSavePrices)} liveStatus={liveStatus} refreshLive={refreshLive} useLive={useLive} setUseLive={setUseLive} />}
+              {activeTab === 'prices' && <PriceManager prices={prices} onSave={handleSave(onSavePrices)} liveStatus={liveStatus} refreshLive={refreshLive} useLive={useLive} setUseLive={setUseLive} hidden_karats={hidden_karats} onSaveHiddenKarats={onSaveHiddenKarats} />}
               {activeTab === 'banners' && <BannerManager banners={banners} onSave={handleSave(onSaveBanners)} />}
               {activeTab === 'outlets' && <OutletManager outlets={outlets} onSave={handleSave(onSaveOutlets)} />}
               {activeTab === 'settings' && (

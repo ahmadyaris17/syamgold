@@ -23,6 +23,7 @@ export function useSettings(fallbackSettings) {
           banners: storedSettings.banners || fallbackSettings.banners,
           outlets: sanitizeOutlets(storedSettings.outlets || fallbackSettings.outlets),
           company: sanitizeCompanyInfo(storedSettings.company || fallbackSettings.company),
+          hidden_karats: storedSettings.hidden_karats || [],
         });
       })
       .catch((error) => console.error('Settings fallback used:', error))

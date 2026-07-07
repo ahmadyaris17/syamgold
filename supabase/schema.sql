@@ -1,5 +1,5 @@
 create table if not exists public.site_settings (
-  section text primary key check (section in ('prices', 'banners', 'outlets', 'company')),
+  section text primary key check (section in ('prices', 'banners', 'outlets', 'company', 'hidden_karats')),
   value jsonb not null,
   updated_at timestamptz not null default now()
 );
@@ -149,7 +149,11 @@ values
   )
 on conflict (section) do nothing;
 
--- Hasil akhir harus menunjukkan 4, true, true.
+insert into public.site_settings (section, value)
+values ('hidden_karats', '[]'::jsonb)
+on conflict (section) do nothing;
+
+-- Hasil akhir harus menunjukkan 5, true, true.
 select
   (select count(*) from public.site_settings) as settings_sections,
   exists (
