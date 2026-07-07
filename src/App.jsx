@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import AdminLogin from './pages/AdminLogin';
 import Admin from './pages/Admin';
 import { supabase } from './services/supabase';
+import { normalizeKaratLabel } from './services/goldPriceApi';
 import {
   changeAdminPassword,
   signInAdmin,
@@ -23,19 +24,22 @@ function ProtectedRoute({ isAuthenticated, isLoading, children }) {
 export default function App() {
   const { settings, saveSection, isLoading: settingsLoading } = useSettings(FALLBACK_SETTINGS);
   const { prices: savedPrices, banners, outlets, company: companyInfo, hidden_karats } = settings;
-  const setSavedPrices = useCallback((value) => {
+  const setSavedPrices = useCallback(async (value) => {
     // Detect karats deleted in Manual mode → auto-add to hidden list
     // so they stay hidden when switching back to Auto mode
-    const oldKarats = new Set((savedPrices || []).map((p) => p.kadar));
-    const newKarats = new Set((value || []).map((p) => p.kadar));
+    const oldKarats = new Set((savedPrices || []).map((p) => normalizeKaratLabel(p.kadar)));
+    const newKarats = new Set((value || []).map((p) => normalizeKaratLabel(p.kadar)));
     const deletedKarats = [...oldKarats].filter((k) => !newKarats.has(k));
+    const stillHidden = (hidden_karats || []).filter(
+      (k) => !newKarats.has(normalizeKaratLabel(k)),
+    );
+    const nextHidden = [...new Set([...stillHidden, ...deletedKarats])];
 
-    if (deletedKarats.length > 0) {
-      const nextHidden = [...new Set([...(hidden_karats || []), ...deletedKarats])];
-      saveSection('hidden_karats', nextHidden);
-    }
-
-    return saveSection('prices', value);
+    const [savedValue] = await Promise.all([
+      saveSection('prices', value),
+      saveSection('hidden_karats', nextHidden),
+    ]);
+    return savedValue;
   }, [saveSection, savedPrices, hidden_karats]);
   const setBanners = useCallback((value) => saveSection('banners', value), [saveSection]);
   const setOutlets = useCallback((value) => saveSection('outlets', value), [saveSection]);
@@ -79,9 +83,14 @@ export default function App() {
   } = useGoldPrices(FALLBACK_SETTINGS.prices, savedPrices, margins);
 
   // Filter out hidden karats (admin can hide rows even in Auto mode)
-  const hiddenSet = useMemo(() => new Set(hidden_karats || []), [hidden_karats]);
+  const hiddenSet = useMemo(
+    () => new Set((hidden_karats || []).map(normalizeKaratLabel)),
+    [hidden_karats],
+  );
   const displayPrices = useMemo(
-    () => (hiddenSet.size > 0 ? prices.filter((p) => !hiddenSet.has(p.kadar)) : prices),
+    () => (hiddenSet.size > 0
+      ? prices.filter((p) => !hiddenSet.has(normalizeKaratLabel(p.kadar)))
+      : prices),
     [prices, hiddenSet],
   );
 

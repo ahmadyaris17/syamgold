@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchLivePrices, clearPriceCache } from '../services/goldPriceApi';
+import {
+  calculateKaratPricesFromSpot,
+  clearPriceCache,
+  fetchLivePrices,
+  normalizeKaratLabel,
+} from '../services/goldPriceApi';
 
 /**
  * Hook that manages gold prices — live API first, Supabase as fallback.
@@ -40,17 +45,8 @@ export function useGoldPrices(_defaultPrices, savedPrices, margins = {}) {
   const marginsRef = useRef(margins);
   marginsRef.current = margins;
 
-  const setUseLive = useCallback(
-    (value) => {
-      setUseLiveState(value);
-      try {
-        localStorage.setItem('sg_use_live', String(value));
-      } catch {
-        // ignore
-      }
-    },
-    [],
-  );
+  const savedPricesRef = useRef(savedPrices);
+  savedPricesRef.current = savedPrices;
 
   // Sync savedPrices → local state only in manual mode
   useEffect(() => {
@@ -66,12 +62,13 @@ export function useGoldPrices(_defaultPrices, savedPrices, margins = {}) {
       clearPriceCache();
       const result = await fetchLivePrices(marginsRef.current);
       if (!result) {
-        setLiveStatus({
+        setLiveStatus((s) => ({
           loading: false,
           source: 'error',
           timestamp: null,
           error: 'Gagal mengambil harga live. Periksa koneksi internet Anda.',
-        });
+          spotIdrPerGram: s.spotIdrPerGram,
+        }));
         return;
       }
 
@@ -80,20 +77,62 @@ export function useGoldPrices(_defaultPrices, savedPrices, margins = {}) {
         source: result.source,
         timestamp: result.timestamp,
         error: null,
+        spotIdrPerGram: result.spotIdrPerGram,
       });
 
       if (useLiveRef.current) {
-        setPrices(result.prices);
+        // Merge custom entries from Manual mode that don't exist in API templates
+        const apiKarats = new Set(result.prices.map((p) => normalizeKaratLabel(p.kadar)));
+        const customEntries = (savedPricesRef.current || []).filter(
+          (p) => !apiKarats.has(normalizeKaratLabel(p.kadar)),
+        ).map((price) => {
+          const calculated = calculateKaratPricesFromSpot(
+            result.spotIdrPerGram,
+            price.kadar,
+            marginsRef.current,
+          );
+          return calculated
+            ? {
+                ...price,
+                ...calculated,
+                kadar: normalizeKaratLabel(price.kadar),
+                trend: result.prices[0]?.trend ?? price.trend,
+                change: result.prices[0]?.change ?? price.change,
+              }
+            : price;
+        });
+        setPrices([...result.prices, ...customEntries]);
       }
     } catch (err) {
-      setLiveStatus({
+      setLiveStatus((s) => ({
         loading: false,
         source: 'error',
         timestamp: null,
         error: err.message || 'Unknown error',
-      });
+        spotIdrPerGram: s.spotIdrPerGram,
+      }));
     }
   }, []);
+
+  const setUseLive = useCallback(
+    (value) => {
+      setUseLiveState(value);
+      try {
+        localStorage.setItem('sg_use_live', String(value));
+      } catch {
+        // ignore
+      }
+      // When switching to Auto, refresh from API immediately
+      if (value) {
+        refreshLive();
+      } else if (Array.isArray(savedPricesRef.current)) {
+        // Restore the last saved Manual snapshot. Auto prices must never
+        // overwrite Manual data unless the admin explicitly saves them.
+        setPrices(savedPricesRef.current);
+      }
+    },
+    [refreshLive],
+  );
 
   // On mount: fetch live prices if not already cached
   useEffect(() => {

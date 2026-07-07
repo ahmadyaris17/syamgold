@@ -76,6 +76,45 @@ export function getPriceTemplates() {
   return PRICE_TEMPLATES.map((t) => ({ ...t }));
 }
 
+function parseNumericKarat(kadarValue) {
+  const match = String(kadarValue ?? '').trim().match(/^(\d+(?:[.,]\d+)?)\s*K?$/i);
+  const karat = match ? Number(match[1].replace(',', '.')) : 0;
+  return karat > 0 && karat <= 24 ? karat : null;
+}
+
+export function normalizeKaratLabel(kadarValue) {
+  const karat = parseNumericKarat(kadarValue);
+  return karat ? `${karat}K` : String(kadarValue ?? '').trim();
+}
+
+export function calculateKaratPrices(reference24k, kadarValue) {
+  const karat = parseNumericKarat(kadarValue);
+
+  if (!reference24k || !karat) return null;
+
+  const multiplier = karat / 24;
+  const roundToThousand = (price) => Math.round((price * multiplier) / 1000) * 1000;
+
+  return {
+    buyPrice: roundToThousand(reference24k.buyPrice),
+    sellPrice: roundToThousand(reference24k.sellPrice),
+  };
+}
+
+export function calculateKaratPricesFromSpot(spotIdrPerGram, kadarValue, margins = {}) {
+  const karat = parseNumericKarat(kadarValue);
+  if (!spotIdrPerGram || !karat) return null;
+
+  const base = spotIdrPerGram * (karat / 24);
+  const buyMargin = margins.buyMargin ?? DEFAULT_BUY_MARGIN;
+  const sellMargin = margins.sellMargin ?? DEFAULT_SELL_MARGIN;
+
+  return {
+    buyPrice: Math.round((base * (1 - buyMargin)) / 1000) * 1000,
+    sellPrice: Math.round((base * (1 + sellMargin)) / 1000) * 1000,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // API source definitions (all free, no key required for #2)
 // ---------------------------------------------------------------------------
@@ -286,8 +325,20 @@ async function tryFreeApis() {
  * @returns {Promise<{prices: Array, spotIdrPerGram: number, timestamp: number, source: string} | null>}
  */
 export async function fetchLivePrices(margins) {
-  // 1. Fresh cache? Return immediately
-  if (isCacheFresh()) {
+  // 0. Override margins from localStorage (instant sync from admin Settings)
+  const effectiveMargins = { ...margins };
+  try {
+    const stored = localStorage.getItem('sg_margins');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      Object.assign(effectiveMargins, parsed);
+    }
+  } catch { /* ignore */ }
+
+  // 1. Fresh cache? Only if margins haven't changed since last cache
+  const marginUpdatedAt = effectiveMargins.updatedAt || 0;
+  const cachedMarginVer = readCache('sg_margin_ver') || 0;
+  if (isCacheFresh() && marginUpdatedAt <= cachedMarginVer) {
     const cached = readCache(CACHE_KEY_PRICES);
     if (cached?.length) {
       return {
@@ -324,10 +375,11 @@ export async function fetchLivePrices(margins) {
   }
 
   // 4. Build & cache
-  const prices = buildPrices(result.idrPerGram, result.trend, result.change, margins);
+  const prices = buildPrices(result.idrPerGram, result.trend, result.change, effectiveMargins);
   const now = Date.now();
   writeCache(CACHE_KEY_PRICES, prices);
   writeCache(CACHE_KEY_TIMESTAMP, now);
+  writeCache('sg_margin_ver', marginUpdatedAt);
 
   return {
     prices,
@@ -347,6 +399,7 @@ export function clearPriceCache() {
     localStorage.removeItem(CACHE_KEY_SPOT);
     localStorage.removeItem(CACHE_KEY_FOREX);
     localStorage.removeItem(CACHE_KEY_TIMESTAMP);
+    localStorage.removeItem('sg_margin_ver');
   } catch { /* ignore */ }
 }
 

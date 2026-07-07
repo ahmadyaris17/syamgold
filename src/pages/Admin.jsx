@@ -7,7 +7,7 @@ import {
   ExternalLink, Eye, Settings, RefreshCw, Wifi, WifiOff, Radio, Key, Shield, Upload,
   Globe, Store, Phone, Mail, FileText, EyeOff, AlertTriangle, Calculator
 } from 'lucide-react';
-import { saveApiKey, getStoredApiKey, testApiKey } from '../services/goldPriceApi';
+import { calculateKaratPrices, calculateKaratPricesFromSpot, normalizeKaratLabel, saveApiKey, getStoredApiKey, testApiKey } from '../services/goldPriceApi';
 import { uploadBannerImage, checkImageSize } from '../utils/imageUpload';
 import { DEFAULT_FOOTER_ADDRESS, normalizeMapEmbedUrl, normalizeWhatsAppNumber } from '../utils/settings';
 import { FacebookIcon, InstagramIcon, WhatsAppIcon } from '../components/SocialIcons';
@@ -203,14 +203,14 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
     setConfirm(null);
   };
 
-  // Sync from external when live prices refresh
+  // Sync when the active Auto/Manual price source changes or a save completes.
   const prevPricesRef = useRef(prices);
   useEffect(() => {
-    if (useLive && prices !== prevPricesRef.current) {
+    if (prices !== prevPricesRef.current) {
       setData(prices.map((p) => ({ ...p })));
       prevPricesRef.current = prices;
     }
-  }, [prices, useLive]);
+  }, [prices]);
 
   const formatPrice = (num) => new Intl.NumberFormat('id-ID').format(num);
 
@@ -222,13 +222,38 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
   };
 
   const update = (id, field, value) => {
-    setData((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, [field]: field === 'buyPrice' || field === 'sellPrice' ? Number(value) || 0 : value }
-          : p
-      )
-    );
+    setData((prev) => {
+      const reference24k = field === 'kadar'
+        ? prev.find((price) => /^24\s*K?$/i.test(String(price.kadar).trim()))
+        : null;
+      const calculatedFromSpot = field === 'kadar'
+        ? calculateKaratPricesFromSpot(liveStatus.spotIdrPerGram, value, {
+            buyMargin: (companyInfo?.buyMargin ?? 3) / 100,
+            sellMargin: (companyInfo?.sellMargin ?? 3) / 100,
+          })
+        : null;
+      const calculated = calculatedFromSpot
+        || (field === 'kadar' ? calculateKaratPrices(reference24k, value) : null);
+
+      return prev.map((price) => {
+        if (price.id !== id) return price;
+
+        const nextPrice = {
+          ...price,
+          [field]: field === 'buyPrice' || field === 'sellPrice' ? Number(value) || 0 : value,
+        };
+
+        if (!calculated) return nextPrice;
+
+        return {
+          ...nextPrice,
+          ...calculated,
+          category: nextPrice.category || 'Emas Perhiasan',
+          trend: reference24k?.trend ?? nextPrice.trend,
+          change: reference24k?.change ?? nextPrice.change,
+        };
+      });
+    });
   };
 
   const addPrice = () => {
@@ -252,7 +277,15 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
   };
 
   const handleSave = () => {
-    onSave(data);
+    const normalizedByKarat = new Map();
+    data.forEach((price) => {
+      const normalizedPrice = { ...price, kadar: normalizeKaratLabel(price.kadar) };
+      const key = `${normalizedPrice.category.trim().toLowerCase()}::${normalizedPrice.kadar.toLowerCase()}`;
+      normalizedByKarat.set(key, normalizedPrice);
+    });
+    const normalizedData = [...normalizedByKarat.values()];
+    setData(normalizedData);
+    onSave(normalizedData);
   };
 
   return (
@@ -313,7 +346,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
       {!useLive && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400/80 text-xs flex items-center gap-2">
           <WifiOff size={13} />
-          Mode Manual aktif. Edit harga secara bebas lalu klik <strong className="text-amber-400">Simpan</strong>.
+          Mode Manual aktif. Isi kadar seperti <strong className="text-amber-400">22</strong> atau <strong className="text-amber-400">22K</strong> agar harga otomatis dihitung dari harga 24K, lalu klik <strong className="text-amber-400">Simpan</strong>.
         </div>
       )}
 
@@ -341,7 +374,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                         value={row.kadar}
                         onChange={(e) => update(row.id, 'kadar', e.target.value)}
                         className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-primary-600/60"
-                        placeholder="cth: 24K"
+                        placeholder="cth: 22 atau 22K"
                         list="kadar-list"
                       />
                     </td>
@@ -554,7 +587,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                       value={row.kadar}
                       onChange={(e) => update(row.id, 'kadar', e.target.value)}
                       className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-primary-600/60"
-                      placeholder="cth: 24K"
+                      placeholder="cth: 22 atau 22K"
                       list="kadar-list-mobile"
                     />
                   </div>
@@ -1143,7 +1176,7 @@ function Dashboard({ prices, banners, outlets, liveStatus, refreshLive, useLive,
 }
 
 // --- Settings Management ---
-function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, onSaveCompany }) {
+function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, onSaveCompany, liveStatus }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState('');
@@ -1199,6 +1232,18 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
     setSiteError('');
     try {
       await onSaveCompany(normalizedSite);
+      // Simpan margin ke localStorage — pakai timestamp biar fetchLivePrices deteksi perubahan
+      const buyPct = parseFloat(site.buyMargin) || 3;
+      const sellPct = parseFloat(site.sellMargin) || 3;
+      try {
+        localStorage.setItem('sg_margins', JSON.stringify({
+          buyMargin: buyPct / 100,
+          sellMargin: sellPct / 100,
+          updatedAt: Date.now(),
+        }));
+      } catch { /* ignore */ }
+      // Refresh dengan margin baru
+      if (refreshLive) refreshLive();
       setSiteSaved(true);
       setTimeout(() => setSiteSaved(false), 2500);
     } catch (saveError) {
@@ -1292,36 +1337,10 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
           </section>
 
           <section>
-            <h2 className="text-gray-900 dark:text-white font-bold text-xl mb-5">Pengaturan GoldAPI.io</h2>
-            <div className="glass border border-gray-200 dark:border-white/8 rounded-2xl p-4 sm:p-6 shadow-sm">
-              <h3 className="text-gray-900 dark:text-white font-bold mb-2 flex items-center gap-2">
-                <Key size={18} className="text-gold-400" /> API Key GoldAPI.io
-              </h3>
-              <p className="text-gray-400 dark:text-white/40 text-xs leading-relaxed text-pretty mb-5">
-                Dapatkan API key gratis dari{' '}
-                <a href="https://www.goldapi.io" target="_blank" rel="noopener noreferrer" className="text-primary-500 dark:text-primary-400 hover:underline">goldapi.io</a>
-                {' '}untuk harga emas live.
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <label className={labelCls}>GoldAPI.io API Key</label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input type="password" value={goldApiKey} onChange={(e) => setGoldApiKey(e.target.value)}
-                      className={'flex-1 ' + inputCls + ' font-mono'} placeholder="goldapi-xxxxxxxxxxxxxxxx" />
-                    <button onClick={handleSaveApiKey} className="btn-primary text-sm py-2 px-4 shrink-0"><Save size={16} /> Simpan</button>
-                  </div>
-                </div>
-                <button onClick={handleTestApiKey} disabled={testing || !goldApiKey.trim()}
-                  className={`flex min-h-10 items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${testing ? 'glass text-gray-400 dark:text-white/30 cursor-not-allowed' : 'btn-outline text-gold-500 dark:text-gold-400 border-gold-400/30 hover:bg-gold-400/10'}`}>
-                  <RefreshCw size={13} className={testing ? 'animate-spin' : ''} /> {testing ? 'Testing...' : 'Test Koneksi'}
-                </button>
-                {testResult && <div className={`px-4 py-3 rounded-xl text-xs leading-relaxed ${testResult.ok ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400'}`}>{testResult.message}</div>}
-                {keySaved && <div className="px-4 py-2 bg-emerald-600/10 border border-emerald-600/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-2"><Check size={13} /> API key tersimpan!</div>}
-              </div>
-            </div>
+            <h2 className="text-gray-900 dark:text-white font-bold text-xl mb-5">Pengaturan Harga Emas</h2>
 
-            {/* Margin Settings */}
-            <div className="glass border border-gray-200 dark:border-white/8 rounded-2xl p-4 sm:p-6 shadow-sm mt-6">
+            {/* Margin Settings — ATAS */}
+            <div className="glass border border-gray-200 dark:border-white/8 rounded-2xl p-4 sm:p-6 shadow-sm">
               <h3 className="text-gray-900 dark:text-white font-bold mb-2 flex items-center gap-2">
                 <TrendingUp size={18} className="text-gold-400" /> Margin Harga
               </h3>
@@ -1375,40 +1394,78 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
                 {(() => {
                   const buyPct = parseFloat(site.buyMargin) || 3;
                   const sellPct = parseFloat(site.sellMargin) || 3;
-                  const spotExample = 1700000;
-                  const buyResult = Math.round(spotExample * (1 - buyPct / 100) / 1000) * 1000;
-                  const sellResult = Math.round(spotExample * (1 + sellPct / 100) / 1000) * 1000;
+                  const liveSpot = liveStatus?.spotIdrPerGram;
+                  const spot = liveSpot || 1700000;
+                  const buyResult = Math.round(spot * (1 - buyPct / 100) / 1000) * 1000;
+                  const sellResult = Math.round(spot * (1 + sellPct / 100) / 1000) * 1000;
                   const fmt = (n) => new Intl.NumberFormat('id-ID').format(n);
                   return (
-                    <div className="grid sm:grid-cols-2 gap-3 text-xs">
-                      <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
-                        <div className="text-gray-400 dark:text-white/40 mb-1">Harga Beli</div>
-                        <div className="text-gray-500 dark:text-white/50 font-mono">
-                          Rp {fmt(spotExample)} × (1 - {buyPct}%)
+                    <>
+                      {/* Spot price info */}
+                      {liveSpot ? (
+                        <div className="bg-white dark:bg-dark-800/60 rounded-xl p-4 border border-emerald-200/50 dark:border-emerald-500/20 mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-gray-500 dark:text-white/40 text-[10px] uppercase tracking-wider">Harga Spot Live 24K</span>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-100/50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                              <Wifi size={10} />
+                              GoldAPI.io
+                            </span>
+                          </div>
+                          <div className="text-2xl font-bold font-mono text-gray-900 dark:text-white">
+                            Rp {fmt(liveSpot)}
+                            <span className="text-sm font-normal text-gray-400 dark:text-white/30">/gram</span>
+                          </div>
+                          <p className="text-gray-400 dark:text-white/30 text-[10px] mt-1.5 border-t border-gray-100 dark:border-white/5 pt-2">
+                            Dihitung dari harga emas dunia (XAU/USD) dikonversi ke Rupiah per gram
+                          </p>
                         </div>
-                        <div className="text-gray-500 dark:text-white/50 font-mono">
-                          = Rp {fmt(spotExample)} × {((100 - buyPct) / 100).toFixed(3)}
+                      ) : (
+                        <div className="bg-white dark:bg-dark-800/60 rounded-xl p-4 border border-gray-200 dark:border-white/10 mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-gray-500 dark:text-white/40 text-[10px] uppercase tracking-wider">Harga Spot Live 24K</span>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
+                              <WifiOff size={10} />
+                              Offline
+                            </span>
+                          </div>
+                          <div className="text-2xl font-bold font-mono text-gray-300 dark:text-white/15">
+                            Rp 1.700.000
+                            <span className="text-sm font-normal text-gray-300/50 dark:text-white/10">/gram</span>
+                          </div>
+                          <p className="text-gray-400 dark:text-white/30 text-[10px] mt-1.5 border-t border-gray-100 dark:border-white/5 pt-2">
+                            Spot belum tersedia — menggunakan contoh untuk simulasi
+                          </p>
                         </div>
-                        <div className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm mt-1">
-                          ≈ Rp {fmt(buyResult)}/g
+                      )}
+                      <div className="grid sm:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
+                          <div className="text-gray-400 dark:text-white/40 mb-1">Harga Beli</div>
+                          <div className="text-gray-500 dark:text-white/50 font-mono">
+                            Rp {fmt(spot)} × (1 - {buyPct}%)
+                          </div>
+                          <div className="text-gray-500 dark:text-white/50 font-mono">
+                            = Rp {fmt(spot)} × {((100 - buyPct) / 100).toFixed(3)}
+                          </div>
+                          <div className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm mt-1">
+                            ≈ Rp {fmt(buyResult)}/g
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
+                          <div className="text-gray-400 dark:text-white/40 mb-1">Harga Jual</div>
+                          <div className="text-gray-500 dark:text-white/50 font-mono">
+                            Rp {fmt(spot)} × (1 + {sellPct}%)
+                          </div>
+                          <div className="text-gray-500 dark:text-white/50 font-mono">
+                            = Rp {fmt(spot)} × {((100 + sellPct) / 100).toFixed(3)}
+                          </div>
+                          <div className="text-primary-600 dark:text-primary-400 font-bold font-mono text-sm mt-1">
+                            ≈ Rp {fmt(sellResult)}/g
+                          </div>
                         </div>
                       </div>
-                      <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
-                        <div className="text-gray-400 dark:text-white/40 mb-1">Harga Jual</div>
-                        <div className="text-gray-500 dark:text-white/50 font-mono">
-                          Rp {fmt(spotExample)} × (1 + {sellPct}%)
-                        </div>
-                        <div className="text-gray-500 dark:text-white/50 font-mono">
-                          = Rp {fmt(spotExample)} × {((100 + sellPct) / 100).toFixed(3)}
-                        </div>
-                        <div className="text-primary-600 dark:text-primary-400 font-bold font-mono text-sm mt-1">
-                          ≈ Rp {fmt(sellResult)}/g
-                        </div>
-                      </div>
-                    </div>
+                    </>
                   );
                 })()}
-                <p className="text-gray-400 dark:text-white/30 text-[10px]">
                 <div className="flex items-center gap-3 mt-5">
                 <button onClick={handleSaveSite} className="btn-primary text-sm py-2 px-5">
                   <Save size={16} /> Simpan Margin
@@ -1426,7 +1483,34 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
                   )}
                 </AnimatePresence>
               </div>
-                </p>
+              </div>
+            </div>
+
+            {/* API Key — BAWAH */}
+            <div className="glass border border-gray-200 dark:border-white/8 rounded-2xl p-4 sm:p-6 shadow-sm mt-6">
+              <h3 className="text-gray-900 dark:text-white font-bold mb-2 flex items-center gap-2">
+                <Key size={18} className="text-gold-400" /> API Key GoldAPI.io
+              </h3>
+              <p className="text-gray-400 dark:text-white/40 text-xs leading-relaxed text-pretty mb-5">
+                Dapatkan API key gratis dari{' '}
+                <a href="https://www.goldapi.io" target="_blank" rel="noopener noreferrer" className="text-primary-500 dark:text-primary-400 hover:underline">goldapi.io</a>
+                {' '}untuk harga emas live.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className={labelCls}>GoldAPI.io API Key</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input type="password" value={goldApiKey} onChange={(e) => setGoldApiKey(e.target.value)}
+                      className={'flex-1 ' + inputCls + ' font-mono'} placeholder="goldapi-xxxxxxxxxxxxxxxx" />
+                    <button onClick={handleSaveApiKey} className="btn-primary text-sm py-2 px-4 shrink-0"><Save size={16} /> Simpan</button>
+                  </div>
+                </div>
+                <button onClick={handleTestApiKey} disabled={testing || !goldApiKey.trim()}
+                  className={`flex min-h-10 items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${testing ? 'glass text-gray-400 dark:text-white/30 cursor-not-allowed' : 'btn-outline text-gold-500 dark:text-gold-400 border-gold-400/30 hover:bg-gold-400/10'}`}>
+                  <RefreshCw size={13} className={testing ? 'animate-spin' : ''} /> {testing ? 'Testing...' : 'Test Koneksi'}
+                </button>
+                {testResult && <div className={`px-4 py-3 rounded-xl text-xs leading-relaxed ${testResult.ok ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400'}`}>{testResult.message}</div>}
+                {keySaved && <div className="px-4 py-2 bg-emerald-600/10 border border-emerald-600/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-2"><Check size={13} /> API key tersimpan!</div>}
               </div>
             </div>
           </section>
@@ -1577,6 +1661,7 @@ export default function Admin({ prices, banners, outlets, companyInfo, hidden_ka
                   refreshLive={refreshLive}
                   companyInfo={companyInfo}
                   onSaveCompany={onSaveCompany}
+                  liveStatus={liveStatus}
                 />
               )}
             </motion.div>

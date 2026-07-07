@@ -9,14 +9,20 @@ const FEATURES = [
   { icon: Award, title: 'Harga Terbaik', desc: 'Kami memberikan harga terbaik di pasaran, selalu update mengikuti harga dunia.', color: 'from-emerald-500/20 to-emerald-600/10', border: 'border-emerald-500/20', iconColor: 'text-emerald-600' },
 ];
 
-const STATS = [
-  { value: '10+', label: 'Tahun Berpengalaman', icon: Award },
-  { value: '15.000+', label: 'Pelanggan Puas', icon: Users },
-  { value: '4.9★', label: 'Rating Kepuasan', icon: Star },
-  { value: '3', label: 'Outlet Aktif', icon: Shield },
-];
+export default function About({ outlets = [] }) {
+  const outletCount = outlets.length;
 
-export default function About() {
+  const scrollToOutlet = () => {
+    const el = document.getElementById('outlet');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const STATS = [
+    { value: '10+', label: 'Tahun Berpengalaman', icon: Award },
+    { value: '15.000+', label: 'Pelanggan Puas', icon: Users },
+    { value: '4.9★', label: 'Rating Kepuasan', icon: Star },
+    { value: String(outletCount), label: 'Outlet Aktif', icon: Shield, href: '#outlet', onClick: scrollToOutlet },
+  ];
   return (
     <section id="tentang" className="py-20 md:py-28 relative overflow-hidden">
       {/* Bg gradient */}
@@ -78,6 +84,8 @@ export default function About() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {STATS.map((stat, i) => {
               const Icon = stat.icon;
+              const isClickable = !!stat.onClick;
+              const Tag = isClickable ? 'button' : 'div';
               return (
                 <motion.div
                   key={stat.label}
@@ -87,11 +95,23 @@ export default function About() {
                   transition={{ delay: i * 0.1 + 0.3 }}
                   className="text-center"
                 >
-                  <Icon size={28} className="text-primary-500 mx-auto mb-3" />
-                  <div className="font-display text-3xl md:text-4xl font-bold gold-text mb-1">
-                    {stat.value}
-                  </div>
-                  <div className="text-gray-500 dark:text-white/50 text-sm">{stat.label}</div>
+                  <Tag
+                    onClick={stat.onClick}
+                    className={`w-full ${isClickable ? 'cursor-pointer group/stat hover:scale-105 transition-transform duration-300' : ''}`}
+                    title={isClickable ? 'Lihat outlet' : undefined}
+                    aria-label={isClickable ? 'Lihat outlet' : undefined}
+                  >
+                    <Icon size={28} className={`mx-auto mb-3 transition-colors duration-300 ${isClickable ? 'text-primary-500 group-hover/stat:text-gold-500' : 'text-primary-500'}`} />
+                    <div className={`font-display text-3xl md:text-4xl font-bold gold-text mb-1 transition-colors duration-300 ${isClickable ? 'group-hover/stat:text-gold-400' : ''}`}>
+                      {stat.value}
+                    </div>
+                    <div className={`text-gray-500 dark:text-white/50 text-sm transition-colors duration-300 ${isClickable ? 'group-hover/stat:text-gold-500 dark:group-hover/stat:text-gold-400' : ''}`}>
+                      {stat.label}
+                      {isClickable && (
+                        <span className="inline-block ml-1.5 opacity-0 group-hover/stat:opacity-100 transition-opacity duration-300 text-gold-400 text-xs">→</span>
+                      )}
+                    </div>
+                  </Tag>
                 </motion.div>
               );
             })}

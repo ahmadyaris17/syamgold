@@ -11,7 +11,7 @@ export default function Home({ banners, prices, outlets, companyInfo, settingsLo
       <Navbar companyInfo={companyInfo} />
       <HeroBanner banners={banners} isLoading={settingsLoading} />
       <GoldPrice prices={prices} liveStatus={liveStatus} onRefresh={onRefresh} companyInfo={companyInfo} />
-      <About />
+      <About outlets={outlets} />
       <Outlets outlets={outlets} mapEmbedUrl={companyInfo?.outletsMapEmbedUrl} />
       <Footer companyInfo={companyInfo} outlets={outlets} />
     </div>
