@@ -112,7 +112,7 @@ function PriceRow({ item, delay }) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function GoldPrice({ prices, liveStatus, onRefresh }) {
+export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }) {
   const [updated, setUpdated] = useState(new Date());
   const [now, setNow] = useState(new Date());
   const [showCalc, setShowCalc] = useState(false);
@@ -315,7 +315,7 @@ export default function GoldPrice({ prices, liveStatus, onRefresh }) {
           className="mt-8 text-center"
         >
           <a
-            href="https://wa.me/628123456789"
+            href={`https://wa.me/${companyInfo?.whatsapp || '628123456789'}`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-gold text-sm sm:text-base px-7 py-3.5 inline-flex items-center gap-2"

@@ -1,5 +1,8 @@
 import { motion } from 'framer-motion';
 import { MapPin, Phone, Clock, ExternalLink, MessageCircle } from 'lucide-react';
+import { normalizeMapEmbedUrl } from '../utils/settings';
+
+const DEFAULT_MAP_EMBED_URL = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63414.48767437988!2d119.37893965!3d-5.14291905!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2dbee3f7e3f5d67f%3A0x3030bfbcaf770b0!2sMakassar%2C%20Makassar%20City%2C%20South%20Sulawesi!5e0!3m2!1sen!2sid!4v1720000000000!5m2!1sen!2sid';
 
 function OutletCard({ outlet, index }) {
   return (
@@ -63,7 +66,9 @@ function OutletCard({ outlet, index }) {
   );
 }
 
-export default function Outlets({ outlets }) {
+export default function Outlets({ outlets, mapEmbedUrl }) {
+  const safeMapEmbedUrl = normalizeMapEmbedUrl(mapEmbedUrl) || DEFAULT_MAP_EMBED_URL;
+
   return (
     <section id="outlet" className="py-20 md:py-28 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
@@ -108,7 +113,7 @@ export default function Outlets({ outlets }) {
             <span className="text-gray-700 dark:text-white/70 text-sm font-semibold">Peta Semua Outlet Syam Gold</span>
           </div>
           <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63414.48767437988!2d119.37893965!3d-5.14291905!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2dbee3f7e3f5d67f%3A0x3030bfbcaf770b0!2sMakassar%2C%20Makassar%20City%2C%20South%20Sulawesi!5e0!3m2!1sen!2sid!4v1720000000000!5m2!1sen!2sid"
+            src={safeMapEmbedUrl}
             className="w-full h-72 grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-500"
             style={{ border: 0 }}
             allowFullScreen loading="lazy"

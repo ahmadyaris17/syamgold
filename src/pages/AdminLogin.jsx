@@ -1,24 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Lock, Eye, EyeOff, LogIn, User } from 'lucide-react';
 
-export default function AdminLogin({ onLogin, correctPassword }) {
+export default function AdminLogin({ onLogin }) {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      if (password === correctPassword) { onLogin(); navigate('/admin/dashboard'); }
-      else { setError('Password salah. Silakan coba lagi.'); }
+    try {
+      await onLogin(username.trim(), password);
+      navigate('/admin/dashboard');
+    } catch (loginError) {
+      setError(loginError.message || 'Username atau password salah.');
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -47,11 +51,24 @@ export default function AdminLogin({ onLogin, correctPassword }) {
             </div>
             <div>
               <h2 className="text-gray-900 dark:text-white font-bold">Masuk Admin</h2>
-              <p className="text-gray-400 dark:text-white/40 text-xs">Masukkan password untuk mengakses panel</p>
+              <p className="text-gray-400 dark:text-white/40 text-xs">Masukkan username dan password admin</p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="text-gray-500 dark:text-white/60 text-sm mb-2 block">Username</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={username} onChange={(e) => setUsername(e.target.value)}
+                  placeholder="admin"
+                  className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 pl-11 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/25 focus:outline-none focus:border-primary-600/60 focus:ring-1 focus:ring-primary-600/20 transition-all duration-300"
+                  required
+                />
+                <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30" />
+              </div>
+            </div>
             <div>
               <label className="text-gray-500 dark:text-white/60 text-sm mb-2 block">Password</label>
               <div className="relative">
@@ -59,9 +76,10 @@ export default function AdminLogin({ onLogin, correctPassword }) {
                   type={showPass ? 'text' : 'password'}
                   value={password} onChange={(e) => setPassword(e.target.value)}
                   placeholder="Masukkan password admin"
-                  className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 pr-12 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/25 focus:outline-none focus:border-primary-600/60 focus:ring-1 focus:ring-primary-600/20 transition-all duration-300"
+                  className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 pl-11 pr-12 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/25 focus:outline-none focus:border-primary-600/60 focus:ring-1 focus:ring-primary-600/20 transition-all duration-300"
                   required
                 />
+                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30" />
                 <button type="button" onClick={() => setShowPass(!showPass)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/60 transition-colors">
                   {showPass ? <EyeOff size={18} /> : <Eye size={18} />}

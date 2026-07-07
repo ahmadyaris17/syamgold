@@ -46,6 +46,37 @@ const DEFAULT_BUY_MARGIN = 0.03;
 const DEFAULT_SELL_MARGIN = 0.03;
 
 // ---------------------------------------------------------------------------
+// Configurable price templates — NOT hardcoded
+// Add, remove, or tweak these to change what getPriceTemplates() returns
+// ---------------------------------------------------------------------------
+
+/**
+ * Each template describes one row in the live-price table:
+ *   kadar      — label shown in the "Kadar" column
+ *   category   — grouping label (e.g. "Emas Perhiasan", "Logam Mulia")
+ *   multiplier — karat fraction (24K = 1.0, 18K = 18/24, etc.)
+ *   premium    — optional multiplier on top (Antam ≈ 1.04, UBS ≈ 1.035)
+ */
+export const PRICE_TEMPLATES = [
+  { kadar: '24K',        category: 'Emas Perhiasan',  multiplier: KARAT_MULTIPLIERS['24K'] },
+  { kadar: '22K',        category: 'Emas Perhiasan',  multiplier: KARAT_MULTIPLIERS['22K'] },
+  { kadar: '18K',        category: 'Emas Perhiasan',  multiplier: KARAT_MULTIPLIERS['18K'] },
+  { kadar: '17K',        category: 'Emas Perhiasan',  multiplier: KARAT_MULTIPLIERS['17K'] },
+  { kadar: '16K',        category: 'Emas Perhiasan',  multiplier: KARAT_MULTIPLIERS['16K'] },
+  { kadar: '8K',         category: 'Emas Perhiasan',  multiplier: KARAT_MULTIPLIERS['8K'] },
+  { kadar: 'LM Antam',   category: 'Logam Mulia',     multiplier: KARAT_MULTIPLIERS['24K'], premium: LM_ANTAM_PREMIUM },
+  { kadar: 'LM UBS',     category: 'Logam Mulia',     multiplier: KARAT_MULTIPLIERS['24K'], premium: LM_UBS_PREMIUM },
+  { kadar: 'Tanpa Surat',category: 'Emas Tanpa Surat',multiplier: KARAT_MULTIPLIERS['24K'] * 0.95 },
+];
+
+/**
+ * Returns a deep copy of the price templates so callers can mutate safely.
+ */
+export function getPriceTemplates() {
+  return PRICE_TEMPLATES.map((t) => ({ ...t }));
+}
+
+// ---------------------------------------------------------------------------
 // API source definitions (all free, no key required for #2)
 // ---------------------------------------------------------------------------
 
@@ -154,31 +185,24 @@ async function tryFetch(endpoints, label) {
 // Price builder (shared by both GoldAPI.io and free-API paths)
 // ---------------------------------------------------------------------------
 
-function buildPrices(idrPerGram24k, trend, change, margins = {}) {
+function buildPrices(idrPerGram24k, trend, change, margins = {}, templates = PRICE_TEMPLATES) {
   const buyM = margins.buyMargin ?? DEFAULT_BUY_MARGIN;
   const sellM = margins.sellMargin ?? DEFAULT_SELL_MARGIN;
 
-  const p = (kadar, category, multiplier, premium = 1.0) => {
+  return templates.map((t, i) => {
+    const multiplier = t.multiplier ?? 1.0;
+    const premium = t.premium ?? 1.0;
     const base = idrPerGram24k * multiplier * premium;
     return {
-      category, kadar,
+      id: i + 1,
+      kadar: t.kadar,
+      category: t.category,
       buyPrice: Math.round((base * (1 - buyM)) / 1000) * 1000,
       sellPrice: Math.round((base * (1 + sellM)) / 1000) * 1000,
-      trend, change,
+      trend,
+      change,
     };
-  };
-
-  return [
-    p('24K', 'Emas Perhiasan', KARAT_MULTIPLIERS['24K']),
-    p('22K', 'Emas Perhiasan', KARAT_MULTIPLIERS['22K']),
-    p('18K', 'Emas Perhiasan', KARAT_MULTIPLIERS['18K']),
-    p('17K', 'Emas Perhiasan', KARAT_MULTIPLIERS['17K']),
-    p('16K', 'Emas Perhiasan', KARAT_MULTIPLIERS['16K']),
-    p('8K', 'Emas Perhiasan', KARAT_MULTIPLIERS['8K']),
-    p('LM Antam', 'Logam Mulia', KARAT_MULTIPLIERS['24K'], LM_ANTAM_PREMIUM),
-    p('LM UBS', 'Logam Mulia', KARAT_MULTIPLIERS['24K'], LM_UBS_PREMIUM),
-    p('Tanpa Surat', 'Emas Tanpa Surat', KARAT_MULTIPLIERS['24K'] * 0.95),
-  ].map((x, i) => ({ id: i + 1, ...x }));
+  });
 }
 
 // ---------------------------------------------------------------------------

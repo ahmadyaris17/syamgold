@@ -1,31 +1,53 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { useGoldPrices } from './hooks/useGoldPrices';
-import {
-  DEFAULT_GOLD_PRICES,
-  DEFAULT_BANNERS,
-  DEFAULT_OUTLETS,
-  COMPANY_INFO,
-  ADMIN_PASSWORD,
-} from './data/defaultData';
+import { useSettings } from './hooks/useSettings';
+import fallbackSettings from '../data/settings.json';
 import Home from './pages/Home';
 import AdminLogin from './pages/AdminLogin';
 import Admin from './pages/Admin';
+import { supabase } from './services/supabase';
+import {
+  changeAdminPassword,
+  signInAdmin,
+  signOutAdmin,
+} from './services/authApi';
 
-function ProtectedRoute({ isAuthenticated, children }) {
+const FALLBACK_SETTINGS = fallbackSettings;
+
+function ProtectedRoute({ isAuthenticated, isLoading, children }) {
+  if (isLoading) return null;
   return isAuthenticated ? children : <Navigate to="/admin" replace />;
 }
 
 export default function App() {
-  const [savedPrices, setSavedPrices] = useLocalStorage('sg_prices', DEFAULT_GOLD_PRICES);
-  const [banners, setBanners] = useLocalStorage('sg_banners', DEFAULT_BANNERS);
-  const [outlets, setOutlets] = useLocalStorage('sg_outlets', DEFAULT_OUTLETS);
-  const [companyInfo] = useLocalStorage('sg_company', COMPANY_INFO);
-  const [adminPassword, setAdminPassword] = useLocalStorage('sg_admin_pass', ADMIN_PASSWORD);
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => sessionStorage.getItem('sg_auth') === 'true'
-  );
+  const { settings, saveSection } = useSettings(FALLBACK_SETTINGS);
+  const { prices: savedPrices, banners, outlets, company: companyInfo } = settings;
+  const setSavedPrices = useCallback((value) => saveSection('prices', value), [saveSection]);
+  const setBanners = useCallback((value) => saveSection('banners', value), [saveSection]);
+  const setOutlets = useCallback((value) => saveSection('outlets', value), [saveSection]);
+  const setCompanyInfo = useCallback((value) => saveSection('company', value), [saveSection]);
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const isAuthenticated = Boolean(session);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return undefined;
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthLoading(false);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   // Live gold prices — auto-fetches from API, falls back to manual
   const {
@@ -34,16 +56,16 @@ export default function App() {
     refreshLive,
     useLive,
     setUseLive,
-  } = useGoldPrices(DEFAULT_GOLD_PRICES, savedPrices, setSavedPrices);
+  } = useGoldPrices(FALLBACK_SETTINGS.prices, savedPrices);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-    sessionStorage.setItem('sg_auth', 'true');
+  const handleLogin = async (username, password) => {
+    const nextSession = await signInAdmin(username, password);
+    setSession(nextSession);
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem('sg_auth');
+  const handleLogout = async () => {
+    await signOutAdmin();
+    setSession(null);
   };
 
   return (
@@ -68,9 +90,11 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            isAuthenticated
+            authLoading
+              ? null
+              : isAuthenticated
               ? <Navigate to="/admin/dashboard" replace />
-              : <AdminLogin onLogin={handleLogin} correctPassword={adminPassword} />
+              : <AdminLogin onLogin={handleLogin} />
           }
         />
 
@@ -78,17 +102,18 @@ export default function App() {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
+            <ProtectedRoute isAuthenticated={isAuthenticated} isLoading={authLoading}>
               <Admin
                 prices={prices}
                 banners={banners}
                 outlets={outlets}
+                companyInfo={companyInfo}
                 onSavePrices={setSavedPrices}
                 onSaveBanners={setBanners}
                 onSaveOutlets={setOutlets}
+                onSaveCompany={setCompanyInfo}
                 onLogout={handleLogout}
-                adminPassword={adminPassword}
-                onChangePassword={setAdminPassword}
+                onChangePassword={changeAdminPassword}
                 liveStatus={liveStatus}
                 refreshLive={refreshLive}
                 useLive={useLive}

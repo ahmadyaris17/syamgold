@@ -10,9 +10,9 @@ export default function Home({ banners, prices, outlets, companyInfo, liveStatus
     <div className="min-h-screen bg-white dark:bg-dark-900 transition-colors duration-300">
       <Navbar companyInfo={companyInfo} />
       <HeroBanner banners={banners} />
-      <GoldPrice prices={prices} liveStatus={liveStatus} onRefresh={onRefresh} />
+      <GoldPrice prices={prices} liveStatus={liveStatus} onRefresh={onRefresh} companyInfo={companyInfo} />
       <About />
-      <Outlets outlets={outlets} />
+      <Outlets outlets={outlets} mapEmbedUrl={companyInfo?.outletsMapEmbedUrl} />
       <Footer companyInfo={companyInfo} outlets={outlets} />
     </div>
   );

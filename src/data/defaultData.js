@@ -1,4 +1,4 @@
-// Default data for the website - stored in localStorage
+// Fallback data used while shared settings.json is unavailable or loading.
 
 export const DEFAULT_GOLD_PRICES = [
   { id: 1, category: 'Emas Perhiasan', kadar: '24K', buyPrice: 1720000, sellPrice: 1780000, trend: 'up', change: '+0.8%' },
@@ -72,17 +72,16 @@ export const DEFAULT_OUTLETS = [
   },
 ];
 
-export const ADMIN_PASSWORD = 'syamgold2024';
-
+// Company info — .env vars take priority, fallback to hardcoded defaults
 export const COMPANY_INFO = {
-  name: 'Syam Gold',
-  fullName: 'PT. Rahmat Indo Mulia',
-  tagline: 'Jual Emas Harga Terbaik – Aman & Transparan',
-  phone: '0411-123456',
-  whatsapp: '628123456789',
-  email: 'info@syamgold.co.id',
-  instagram: 'https://instagram.com/syamgold',
-  facebook: 'https://facebook.com/syamgold',
-  description: 'Kami membeli berbagai jenis Logam Mulia seperti Emas Perhiasan, Emas Batangan, Emas Tanpa Surat, Emas Lama, Emas Warisan dan Emas Patah dengan harga terbaik di pasaran.',
+  name: import.meta.env.VITE_BRAND_NAME || 'Syam Gold',
+  fullName: import.meta.env.VITE_COMPANY_NAME || 'PT. Rahmat Indo Mulia',
+  tagline: import.meta.env.VITE_TAGLINE || 'Jual Emas Harga Terbaik – Aman & Transparan',
+  phone: import.meta.env.VITE_PHONE || '0411-123456',
+  whatsapp: import.meta.env.VITE_WHATSAPP || '628123456789',
+  email: import.meta.env.VITE_EMAIL || 'info@syamgold.co.id',
+  instagram: import.meta.env.VITE_INSTAGRAM || 'https://instagram.com/syamgold',
+  facebook: import.meta.env.VITE_FACEBOOK || 'https://facebook.com/syamgold',
+  description: import.meta.env.VITE_DESCRIPTION || 'Kami membeli berbagai jenis Logam Mulia seperti Emas Perhiasan, Emas Batangan, Emas Tanpa Surat, Emas Lama, Emas Warisan dan Emas Patah dengan harga terbaik di pasaran.',
   updatedAt: new Date().toISOString(),
 };

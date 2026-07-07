@@ -10,11 +10,10 @@ import { fetchLivePrices } from '../services/goldPriceApi';
  * - `useLive` toggle in localStorage (`sg_use_live`) controls auto mode.
  *
  * @param {Array} _defaultPrices - Unused (for future use)
- * @param {Array} savedPrices    - User's saved prices from localStorage
- * @param {Function} setSavedPrices - Setter for manual prices
+ * @param {Array} savedPrices    - User's saved manual prices
  * @returns {{ prices: Array, liveStatus: object, refreshLive: Function, useLive: boolean, setUseLive: Function }}
  */
-export function useGoldPrices(_defaultPrices, savedPrices, setSavedPrices) {
+export function useGoldPrices(_defaultPrices, savedPrices) {
   // Start with saved prices or empty — never show hardcoded defaults
   const [prices, setPrices] = useState(savedPrices?.length ? savedPrices : []);
   const [liveStatus, setLiveStatus] = useState({
@@ -78,8 +77,6 @@ export function useGoldPrices(_defaultPrices, savedPrices, setSavedPrices) {
 
       if (useLiveRef.current) {
         setPrices(result.prices);
-        // Also persist live prices as the "saved" prices so admin sees them
-        setSavedPrices(result.prices);
       }
     } catch (err) {
       setLiveStatus({
@@ -89,7 +86,7 @@ export function useGoldPrices(_defaultPrices, savedPrices, setSavedPrices) {
         error: err.message || 'Unknown error',
       });
     }
-  }, [setSavedPrices]);
+  }, []);
 
   // On mount: fetch live prices if not already cached
   useEffect(() => {
