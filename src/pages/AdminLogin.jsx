@@ -62,7 +62,7 @@ export default function AdminLogin({ onLogin }) {
                 <input
                   type="text"
                   value={username} onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="Masukan Username"
                   className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 pl-11 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/25 focus:outline-none focus:border-primary-600/60 focus:ring-1 focus:ring-primary-600/20 transition-all duration-300"
                   required
                 />
