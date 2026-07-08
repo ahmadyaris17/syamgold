@@ -182,8 +182,14 @@ function ConfirmModal({ onClose, onConfirm, title, message, confirmLabel, confir
 }
 
 // --- Gold Price Management (CRUD — categories are free-text input) ---
+const karatValue = (value) => {
+  const match = String(value).replace(',', '.').match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : -1;
+};
+const sortByKaratDesc = (items) => [...items].sort((a, b) => karatValue(b.kadar) - karatValue(a.kadar));
+
 function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUseLive, hidden_karats, onSaveHiddenKarats, companyInfo }) {
-  const [data, setData] = useState(() => prices.map((p) => ({ ...p })));
+  const [data, setData] = useState(() => sortByKaratDesc(prices.map((p) => ({ ...p }))));
   const [editId, setEditId] = useState(null);
   const [toast, setToast] = useState(null); // { message, type }
   const [confirm, setConfirm] = useState(null); // { title, message, confirmLabel, confirmVariant, onConfirm }
@@ -207,7 +213,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
   const prevPricesRef = useRef(prices);
   useEffect(() => {
     if (prices !== prevPricesRef.current) {
-      setData(prices.map((p) => ({ ...p })));
+      setData(sortByKaratDesc(prices.map((p) => ({ ...p }))));
       prevPricesRef.current = prices;
     }
   }, [prices]);
@@ -320,7 +326,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
         change: effectiveChange?.change || '+0.00%',
       });
     });
-    const normalizedData = [...normalizedByKarat.values()];
+    const normalizedData = sortByKaratDesc([...normalizedByKarat.values()]);
     setData(normalizedData);
     onSave(normalizedData);
   };

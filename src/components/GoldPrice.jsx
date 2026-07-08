@@ -5,6 +5,11 @@ import { TrendingUp, TrendingDown, Clock, RefreshCw, Calculator, X, Wifi, WifiOf
 const fmt = (n) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 const fmtNum = (n) => new Intl.NumberFormat('id-ID').format(n);
+const karatValue = (value) => {
+  const match = String(value).replace(',', '.').match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : -1;
+};
+const sortByKaratDesc = (items) => [...items].sort((a, b) => karatValue(b.kadar) - karatValue(a.kadar));
 
 // ─── Kalkulator ──────────────────────────────────────────────────────────────
 function PriceCalc({ allPrices, onClose }) {
@@ -117,13 +122,14 @@ export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }
     return () => clearInterval(t);
   }, []);
 
-  const noData = !prices || prices.length === 0;
-  const spot24k = prices.find((p) => p.kadar === '24K' && p.category === 'Emas Perhiasan') || prices[0];
+  const sortedPrices = sortByKaratDesc(prices || []);
+  const noData = sortedPrices.length === 0;
+  const spot24k = sortedPrices.find((p) => p.kadar === '24K' && p.category === 'Emas Perhiasan') || sortedPrices[0];
   const trend = spot24k?.trend || 'up';
   const change = spot24k?.change || '+0.0%';
 
   // Group prices by category
-  const categories = prices.reduce((acc, p) => {
+  const categories = sortedPrices.reduce((acc, p) => {
     if (!acc[p.category]) acc[p.category] = [];
     acc[p.category].push(p);
     return acc;
@@ -294,7 +300,7 @@ export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }
               </div>
               <AnimatePresence>
                 {showCalc && (
-                  <PriceCalc allPrices={prices} onClose={() => setShowCalc(false)} />
+                  <PriceCalc allPrices={sortedPrices} onClose={() => setShowCalc(false)} />
                 )}
               </AnimatePresence>
             </div>
