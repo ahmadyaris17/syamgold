@@ -13,7 +13,6 @@ function PriceCalc({ allPrices, onClose }) {
   const selected = allPrices.find((k) => k.id === Number(selectedId));
   const grams = parseFloat(weight) || 0;
   const buyTotal = selected ? selected.buyPrice * grams : 0;
-  const sellTotal = selected ? selected.sellPrice * grams : 0;
 
   return (
     <motion.div
@@ -60,17 +59,12 @@ function PriceCalc({ allPrices, onClose }) {
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="mt-4 grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 dark:border-white/5"
+          className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5"
         >
           <div className="text-center p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/15">
             <div className="text-gray-500 dark:text-white/40 text-[9px] uppercase tracking-wider mb-1">Kamu Jual · Diterima</div>
             <div className="text-emerald-600 dark:text-emerald-400 font-bold text-lg font-mono">{fmt(buyTotal)}</div>
             <div className="text-gray-400 dark:text-white/25 text-[9px] mt-0.5">{grams}g × {fmtNum(selected.buyPrice)}/g</div>
-          </div>
-          <div className="text-center p-3 rounded-xl bg-primary-50 dark:bg-primary-500/5 border border-primary-100 dark:border-primary-500/15">
-            <div className="text-gray-500 dark:text-white/40 text-[9px] uppercase tracking-wider mb-1">Kamu Beli · Dibayar</div>
-            <div className="text-primary-600 dark:text-primary-400 font-bold text-lg font-mono">{fmt(sellTotal)}</div>
-            <div className="text-gray-400 dark:text-white/25 text-[9px] mt-0.5">{grams}g × {fmtNum(selected.sellPrice)}/g</div>
           </div>
         </motion.div>
       )}
@@ -97,9 +91,6 @@ function PriceRow({ item, delay }) {
       </td>
       <td className="py-3 px-2 text-right">
         <span className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold text-sm">{fmt(item.buyPrice)}</span>
-      </td>
-      <td className="py-3 px-2 text-right">
-        <span className="text-primary-600 dark:text-primary-400 font-mono font-semibold text-sm">{fmt(item.sellPrice)}</span>
       </td>
       <td className="py-3 pl-2 pr-4 text-right">
         <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -225,16 +216,11 @@ export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }
                   {change}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div>
                 <div className="bg-white/70 dark:bg-white/5 rounded-xl p-3 text-center border border-amber-100 dark:border-white/5">
                   <div className="text-[10px] text-gray-400 dark:text-white/35 uppercase tracking-wider mb-1">Kami Beli</div>
                   <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">{fmt(spot24k?.buyPrice || 0)}</div>
                   <div className="text-[9px] text-gray-400 dark:text-white/25 mt-0.5">Harga kami beli dari Anda</div>
-                </div>
-                <div className="bg-white/70 dark:bg-white/5 rounded-xl p-3 text-center border border-amber-100 dark:border-white/5">
-                  <div className="text-[10px] text-gray-400 dark:text-white/35 uppercase tracking-wider mb-1">Kami Jual</div>
-                  <div className="text-xl font-bold text-primary-600 dark:text-primary-400 font-mono">{fmt(spot24k?.sellPrice || 0)}</div>
-                  <div className="text-[9px] text-gray-400 dark:text-white/25 mt-0.5">Harga kami jual ke Anda</div>
                 </div>
               </div>
             </motion.div>
@@ -248,10 +234,9 @@ export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }
               className="bg-white dark:bg-dark-800/60 border border-gray-100 dark:border-white/8 rounded-2xl overflow-hidden shadow-sm"
             >
               {/* Table header */}
-              <div className="grid grid-cols-[1fr_auto_auto_auto] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-100 dark:border-white/8">
+              <div className="grid grid-cols-[1fr_auto_auto] bg-gray-50 dark:bg-white/[0.03] border-b border-gray-100 dark:border-white/8">
                 <div className="py-2.5 pl-4 pr-2 text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider">Jenis Emas</div>
                 <div className="py-2.5 px-2 text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider text-right">Harga Beli</div>
-                <div className="py-2.5 px-2 text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider text-right">Harga Jual</div>
                 <div className="py-2.5 pl-2 pr-4 text-[10px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-wider text-right">Tren</div>
               </div>
 
@@ -261,7 +246,7 @@ export default function GoldPrice({ prices, liveStatus, onRefresh, companyInfo }
                     <>
                       {/* Subheader kategori */}
                       <tr key={`cat-${cat}`} className="bg-amber-50/60 dark:bg-gold-400/5">
-                        <td colSpan={4} className="py-1.5 pl-4 text-[10px] font-bold text-amber-700 dark:text-gold-500 uppercase tracking-widest">
+                        <td colSpan={3} className="py-1.5 pl-4 text-[10px] font-bold text-amber-700 dark:text-gold-500 uppercase tracking-widest">
                           {cat}
                         </td>
                       </tr>

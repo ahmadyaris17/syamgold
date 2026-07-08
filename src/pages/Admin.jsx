@@ -301,19 +301,16 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
         },
       );
       const pricesUnchanged = previousPrice
-        && Number(previousPrice.buyPrice) === Number(normalizedPrice.buyPrice)
-        && Number(previousPrice.sellPrice) === Number(normalizedPrice.sellPrice);
+        && Number(previousPrice.buyPrice) === Number(normalizedPrice.buyPrice);
       const previousChangeNumber = Number.parseFloat(previousPrice?.change);
       const hasMeaningfulPreviousChange = Number.isFinite(previousChangeNumber)
         && Math.abs(previousChangeNumber) > 0.0001;
       const baselinePrice = pricesUnchanged && !hasMeaningfulPreviousChange
         ? (autoReference || previousPrice)
         : (previousPrice || autoReference);
-      const baselineMidPrice = baselinePrice
-        ? (Number(baselinePrice.buyPrice) + Number(baselinePrice.sellPrice)) / 2
-        : null;
-      const currentMidPrice = (Number(normalizedPrice.buyPrice) + Number(normalizedPrice.sellPrice)) / 2;
-      const priceChange = calculatePercentageChange(baselineMidPrice, currentMidPrice);
+      const baselineBuyPrice = baselinePrice ? Number(baselinePrice.buyPrice) : null;
+      const currentBuyPrice = Number(normalizedPrice.buyPrice);
+      const priceChange = calculatePercentageChange(baselineBuyPrice, currentBuyPrice);
       const effectiveChange = pricesUnchanged && hasMeaningfulPreviousChange
         ? { trend: previousPrice.trend || 'up', change: previousPrice.change }
         : priceChange;
@@ -399,7 +396,6 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                 <th className="text-left py-3 px-4 text-gray-400 dark:text-white/40 text-xs uppercase tracking-wider">Kadar</th>
                 <th className="text-left py-3 px-4 text-gray-400 dark:text-white/40 text-xs uppercase tracking-wider">Kategori</th>
                 <th className="text-right py-3 px-4 text-gray-400 dark:text-white/40 text-xs uppercase tracking-wider">Harga Beli / gr</th>
-                <th className="text-right py-3 px-4 text-gray-400 dark:text-white/40 text-xs uppercase tracking-wider">Harga Jual / gr</th>
                 <th className="text-center py-3 px-4 text-gray-400 dark:text-white/40 text-xs uppercase tracking-wider">Trend</th>
                 <th className="text-center py-3 px-4 text-gray-400 dark:text-white/40 text-xs uppercase tracking-wider">Change</th>
                 <th className="text-center py-3 px-4 text-gray-400 dark:text-white/40 text-xs uppercase tracking-wider">Aksi</th>
@@ -433,16 +429,6 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                         value={formatPriceInput(row.buyPrice)}
                         onChange={(e) => update(row.id, 'buyPrice', parsePriceInput(e.target.value))}
                         className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gold-400 text-sm font-mono text-right focus:outline-none focus:border-primary-600/60"
-                        placeholder="0"
-                      />
-                    </td>
-                    <td className="py-2 px-3">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={formatPriceInput(row.sellPrice)}
-                        onChange={(e) => update(row.id, 'sellPrice', parsePriceInput(e.target.value))}
-                        className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-primary-400 text-sm font-mono text-right focus:outline-none focus:border-primary-600/60"
                         placeholder="0"
                       />
                     </td>
@@ -509,9 +495,6 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                     <td className="py-3 px-4 text-gray-500 dark:text-white/50 text-sm">{row.category}</td>
                     <td className="py-3 px-4 text-gold-400 text-sm font-mono text-right">
                       Rp {formatPrice(row.buyPrice)}
-                    </td>
-                    <td className="py-3 px-4 text-primary-400 text-sm font-mono text-right">
-                      Rp {formatPrice(row.sellPrice)}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className={`inline-flex items-center gap-1 text-xs font-bold ${
@@ -611,7 +594,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
         )}
         <div className="px-6 py-3 border-t border-gray-200 dark:border-white/8 text-gray-400 dark:text-white/25 text-xs text-center">
           {useLive
-            ? `Harga dikalkulasi otomatis dari spot price emas internasional. Margin beli ${companyInfo?.buyMargin ?? 3}% | Margin jual ${companyInfo?.sellMargin ?? 3}%.`
+            ? `Harga beli dikalkulasi otomatis dari spot price emas internasional. Margin beli ${companyInfo?.buyMargin ?? 3}%.`
             : 'Mode manual — harga diatur sendiri. Klik Simpan setelah selesai mengedit.'}
         </div>
       </div>
@@ -622,7 +605,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
           editId === row.id ? (
             <div key={row.id} className="glass border border-primary-600/30 rounded-2xl p-4 bg-primary-600/5">
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div>
                   <div>
                     <label className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5 block">Kadar</label>
                     <input
@@ -652,17 +635,6 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                       value={formatPriceInput(row.buyPrice)}
                       onChange={(e) => update(row.id, 'buyPrice', parsePriceInput(e.target.value))}
                       className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-gold-400 text-sm font-mono focus:outline-none focus:border-primary-600/60"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5 block">Harga Jual / gr</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formatPriceInput(row.sellPrice)}
-                      onChange={(e) => update(row.id, 'sellPrice', parsePriceInput(e.target.value))}
-                      className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-primary-400 text-sm font-mono focus:outline-none focus:border-primary-600/60"
                       placeholder="0"
                     />
                   </div>
@@ -737,17 +709,11 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
                   {row.change}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div>
                 <div>
-                  <div className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5">Beli / gr</div>
+                  <div className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5">Harga Beli / gr</div>
                   <div className="text-gold-400 font-mono text-sm font-bold">
                     Rp {formatPrice(row.buyPrice)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-gray-400 dark:text-white/40 text-[10px] uppercase tracking-wider mb-0.5">Jual / gr</div>
-                  <div className="text-primary-400 font-mono text-sm font-bold">
-                    Rp {formatPrice(row.sellPrice)}
                   </div>
                 </div>
               </div>
@@ -827,7 +793,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
         )}
         <div className="px-4 py-3 text-gray-400 dark:text-white/25 text-[10px] text-center">
           {useLive
-            ? `Harga dari spot emas internasional. Margin beli ${companyInfo?.buyMargin ?? 3}% | Margin jual ${companyInfo?.sellMargin ?? 3}%.`
+            ? `Harga beli dari spot emas internasional. Margin beli ${companyInfo?.buyMargin ?? 3}%.`
             : 'Mode manual — klik Simpan setelah selesai.'}
         </div>
       </div>
@@ -1481,7 +1447,7 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
               <p className="text-gray-400 dark:text-white/40 text-xs leading-relaxed text-pretty mb-5">
                 Persentase margin yang ditambahkan ke harga spot emas. Disimpan di pengaturan website.
               </p>
-              <div className="grid sm:grid-cols-2 gap-4 mb-5">
+              <div className="mb-5">
                 <div>
                   <label className={labelCls}>Margin Beli (%)</label>
                   <div className="flex items-center gap-2">
@@ -1500,24 +1466,6 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
                   </div>
                   <p className="text-gray-400 dark:text-white/25 text-[10px] mt-1">Harga kami beli dari pelanggan</p>
                 </div>
-                <div>
-                  <label className={labelCls}>Margin Jual (%)</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={site.sellMargin ?? 3}
-                      onChange={(e) => {
-                        const v = e.target.value.replace(/[^0-9.]/g, '');
-                        updateSite('sellMargin', v === '' ? '' : v);
-                      }}
-                      className={'w-20 ' + inputCls + ' text-center font-mono'}
-                      placeholder="3"
-                    />
-                    <span className="text-gray-400 dark:text-white/40 text-sm">%</span>
-                  </div>
-                  <p className="text-gray-400 dark:text-white/25 text-[10px] mt-1">Harga kami jual ke pelanggan</p>
-                </div>
               </div>
 
               {/* Kalkulasi preview */}
@@ -1527,11 +1475,9 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
                 </h4>
                 {(() => {
                   const buyPct = parseFloat(site.buyMargin) || 3;
-                  const sellPct = parseFloat(site.sellMargin) || 3;
                   const liveSpot = liveStatus?.spotIdrPerGram;
                   const spot = liveSpot || 1700000;
                   const buyResult = Math.round(spot * (1 - buyPct / 100) / 1000) * 1000;
-                  const sellResult = Math.round(spot * (1 + sellPct / 100) / 1000) * 1000;
                   const fmt = (n) => new Intl.NumberFormat('id-ID').format(n);
                   return (
                     <>
@@ -1571,7 +1517,7 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
                           </p>
                         </div>
                       )}
-                      <div className="grid sm:grid-cols-2 gap-3 text-xs">
+                      <div className="text-xs">
                         <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
                           <div className="text-gray-400 dark:text-white/40 mb-1">Harga Beli</div>
                           <div className="text-gray-500 dark:text-white/50 font-mono">
@@ -1582,18 +1528,6 @@ function SettingsManager({ onChangePassword, onSave, refreshLive, companyInfo, o
                           </div>
                           <div className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm mt-1">
                             ≈ Rp {fmt(buyResult)}/g
-                          </div>
-                        </div>
-                        <div className="bg-white dark:bg-dark-800/50 rounded-lg p-3 border border-gray-100 dark:border-white/5">
-                          <div className="text-gray-400 dark:text-white/40 mb-1">Harga Jual</div>
-                          <div className="text-gray-500 dark:text-white/50 font-mono">
-                            Rp {fmt(spot)} × (1 + {sellPct}%)
-                          </div>
-                          <div className="text-gray-500 dark:text-white/50 font-mono">
-                            = Rp {fmt(spot)} × {((100 + sellPct) / 100).toFixed(3)}
-                          </div>
-                          <div className="text-primary-600 dark:text-primary-400 font-bold font-mono text-sm mt-1">
-                            ≈ Rp {fmt(sellResult)}/g
                           </div>
                         </div>
                       </div>
