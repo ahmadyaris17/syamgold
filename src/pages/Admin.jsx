@@ -331,6 +331,8 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
     onSave(normalizedData);
   };
 
+  const sortedData = sortByKaratDesc(data);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -408,7 +410,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
               </tr>
             </thead>
             <tbody>
-              {data.map((row) =>
+              {sortedData.map((row) =>
                 editId === row.id ? (
                   <tr key={row.id} className="border-b border-gray-100 dark:border-white/5 bg-primary-600/5">
                     <td className="py-2 px-3">
@@ -607,7 +609,7 @@ function PriceManager({ prices, onSave, liveStatus, refreshLive, useLive, setUse
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
-        {data.map((row) =>
+        {sortedData.map((row) =>
           editId === row.id ? (
             <div key={row.id} className="glass border border-primary-600/30 rounded-2xl p-4 bg-primary-600/5">
               <div className="space-y-3">
